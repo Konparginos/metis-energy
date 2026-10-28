@@ -1,0 +1,52 @@
+# Metis Energy platform
+
+Energy procurement intelligence for Greek C&I buyers. Live at https://metis-energy.web.app (Firebase project `metis-energy`, EU region).
+
+## Structure
+
+```
+METIS/
+├── src/                      Web app (React + Vite)
+│   ├── App.jsx               Routing by path, language, login, test-mode banner
+│   ├── router.jsx            Paths: /prices /imbalance /uplift /profile /buy-or-wait /advisory /data-sources, /admin/...
+│   ├── Shell.jsx, Logo.jsx   Side menu, top bar, Metis logo
+│   ├── Member.jsx            Client view (the prototype's tabs)
+│   ├── MarketModule.jsx      Price curves, Imbalance, Uplift, Data sources
+│   ├── CostModule.jsx        Your profile: upload, sample, pricing
+│   ├── Modules.jsx           Buy or wait, Advisory
+│   ├── Admin*.jsx            Admin area: clients, data feeds, formula, signals, requests, legal texts, settings
+│   ├── Catalogue.jsx         Where each data series should come from
+│   ├── insights.jsx          Plain-language reading of the numbers (EN/EL)
+│   ├── i18n.js               All texts, English (default) and Greek
+│   └── styles.css            Design tokens, layout, motion
+├── functions/                Cloud Functions (Node 22, europe-west1)
+│   ├── index.js              Users and roles, feeds, pricing, imports
+│   └── lib/                  Parsers (IPTO, ENTSO-E), cost formula, feed writers + tests
+├── tests/rules.test.js       Security-rules tests (Firestore emulator)
+├── scripts/                  One-off: import-prototype.mjs (prototype data, labelled)
+├── firestore.rules           Who can read and write what
+├── firebase.json             Hosting, functions, Firestore config
+└── index.html, vite.config.js, package.json
+```
+
+## Commands
+
+```bash
+npm install && (cd functions && npm install)   # once, after copying the folder
+npm run dev                                    # local preview at http://localhost:5173
+npm test                                       # formula and parser tests
+npm run test:rules                             # security rules (needs Java)
+npm run deploy                                 # build and deploy everything
+```
+
+## Data
+
+- IPTO imbalance and uplift accounts: official, collected daily at 09:00 Athens, history from Oct 2022.
+- Hourly day-ahead (Jan 2025 to Sep 2026): copied from the prototype, licensed for Metis internal use only. Replaced by ENTSO-E once the API token is saved in Admin → Data feeds.
+- TTF, EUA, Guarantees of Origin, monthly power: prototype series, labelled Indicative / Low confidence.
+
+## Before real clients
+
+1. Admin → Settings: add admins, then tick "Login required" (test mode gives everyone admin access).
+2. Admin → Data feeds: save the ENTSO-E token, backfill.
+3. Admin → Legal texts: privacy policy, terms, disclaimer.

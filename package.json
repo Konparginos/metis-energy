@@ -1,0 +1,27 @@
+{
+  "name": "metis-energy",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test \"functions/lib/*.test.js\"",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-metis \"node --test tests/rules.test.js\"",
+    "deploy": "vite build && firebase deploy"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "^2.1.7",
+    "chart.js": "^4.4.1",
+    "firebase": "^12.6.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "read-excel-file": "^5.8.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "@vitejs/plugin-react": "^5.1.0",
+    "vite": "^7.2.0"
+  }
+}

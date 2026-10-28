@@ -1,0 +1,109 @@
+rules_version = '2';
+
+// Data model
+//   companies/{cid}                 { name, modules: { market, cost, signal, advisory }, validUntil }
+//   companies/{cid}/members/{uid}   { email, role: owner | analyst | viewer }  → mirrored into auth claims { cid, role }
+//   companies/{cid}/profiles/{pid}  saved consumption profiles and results
+//   market/{series}/months/{ym}     market data, written only by Cloud Functions
+//   settings/app                    { authRequired }  → while not true, everyone is treated as admin (pre-launch testing)
+//   admins/{uid}                    { email }  list of Metis admins, written by Cloud Functions
+// Metis staff carry the auth claim { admin: true }.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function openMode() {
+      return !exists(/databases/$(database)/documents/settings/app)
+        || get(/databases/$(database)/documents/settings/app).data.get('authRequired', false) != true;
+    }
+    function isAdmin() { return (signedIn() && request.auth.token.admin == true) || openMode(); }
+
+    match /settings/app {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /admins/{uid} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    function inCompany(cid) { return signedIn() && request.auth.token.cid == cid; }
+    function canEdit() { return request.auth.token.role in ['owner', 'analyst']; }
+    function company() { return get(/databases/$(database)/documents/companies/$(request.auth.token.cid)).data; }
+    function hasModule(m) {
+      return signedIn() && request.auth.token.cid is string
+        && company().modules.get(m, false) == true
+        && (company().get('validUntil', null) == null || company().validUntil > request.time);
+    }
+
+    match /companies/{cid} {
+      allow read: if isAdmin() || inCompany(cid);
+      allow write: if isAdmin();
+
+      // Owners add members through the createMember function, so direct writes stay admin-only.
+      match /members/{uid} {
+        allow read: if isAdmin() || inCompany(cid);
+        allow write: if isAdmin();
+      }
+
+      match /profiles/{pid} {
+        allow read: if isAdmin() || (inCompany(cid) && hasModule('cost'));
+        allow create, update: if isAdmin() || (inCompany(cid) && canEdit() && hasModule('cost')
+          && request.resource.data.createdBy == request.auth.uid);
+        allow delete: if isAdmin() || (inCompany(cid) && canEdit());
+      }
+
+      // Advisory requests: client opens one, both sides append to the thread.
+      match /requests/{rid} {
+        allow read: if isAdmin() || (inCompany(cid) && hasModule('advisory'));
+        allow create: if isAdmin() || (inCompany(cid) && canEdit() && hasModule('advisory')
+          && request.resource.data.createdBy == request.auth.uid && request.resource.data.thread.size() == 1);
+        allow update: if isAdmin() || (inCompany(cid) && canEdit() && hasModule('advisory')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['thread', 'updatedAt'])
+          && request.resource.data.thread.size() == resource.data.thread.size() + 1);
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /{path=**}/requests/{rid} {
+      allow read: if isAdmin();
+    }
+
+    // Market feeds: written only by Cloud Functions.
+    match /market/{doc=**} {
+      allow read: if isAdmin() || hasModule('market');
+      allow write: if false;
+    }
+
+    // Admin-managed series. 'display' may be shown to clients; 'derived' and 'internal' never leave the server/admins.
+    match /series/{sid} {
+      allow read: if isAdmin() || (hasModule('market') && resource.data.licence == 'display');
+      allow write: if false;
+      match /versions/{v} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
+    // API tokens and feed credentials: admins may set them, nobody can read them back.
+    match /secrets/{id} {
+      allow read: if false;
+      allow write: if isAdmin();
+    }
+
+    // Formula parameters, upload template, public texts.
+    match /config/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /content/{page} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Buy-or-Wait signals published by Metis.
+    match /signals/{id} {
+      allow read: if isAdmin() || hasModule('signal');
+      allow write: if isAdmin();
+    }
+  }
+}
