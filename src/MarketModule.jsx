@@ -61,6 +61,9 @@ function useMarket(range) {
     for (const mo of data.dam) for (const [hk, p] of Object.entries(mo?.hours || {})) (byDay[dayOfHour(+hk)] ||= []).push(p);
     const damDays = Object.keys(byDay).sort();
     const damInternal = data.dam.some((mo) => mo?.licence === 'internal');
+    // Latest complete day: the Greek delivery day ends at 01:00 Athens, so its last hour lands alone on the next date.
+    const damLast = damDays.findLast((d) => byDay[d].length >= 20);
+    const damLastInternal = damLast && data.dam.find((mo, i) => data.months[i] === damLast.slice(0, 7))?.licence === 'internal';
     const damSource = data.dam.findLast((mo) => mo?.source)?.source;
     const imb = Object.assign({}, ...data.ipto.map((x) => x?.days || {}));
     const imbDays = Object.keys(imb).sort();
@@ -103,7 +106,7 @@ function useMarket(range) {
     return {
       data, coverage, curMonth, damDays, byDay, damInternal, damSource, imb, imbDays, commodities, rebased,
       kpi: {
-        dam: damDays.length ? { v: mean(byDay[damDays.at(-1)]), d: damDays.at(-1) } : null,
+        dam: damLast ? { v: mean(byDay[damLast]), d: damLast, internal: damLastInternal } : null,
         imb: imbDays.length ? { v: imb[imbDays.at(-1)].imb, d: imbDays.at(-1) } : null,
         up: imbDays.length ? { v: imb[imbDays.at(-1)].u1 + imb[imbDays.at(-1)].u2 + imb[imbDays.at(-1)].u3, d: imbDays.at(-1) } : null,
       },
@@ -162,7 +165,7 @@ function Prices({ m, range, setRange }) {
           <div key={k} className={`kpi${i === hero ? ' hero' : ''}`}>
             <div className="k">{t(k)}</div>
             <div className="v">{item ? <Num value={item.v} digits={2} suffix="€/MWh" /> : '-'}</div>
-            <div className="d">{item ? item.d : t('noData')}{k === 'latestDam' && m.damInternal && <> · {t('internalUse')}</>}</div>
+            <div className="d">{item ? item.d : t('noData')}{k === 'latestDam' && item?.internal && <> · {t('internalUse')}</>}</div>
           </div>
         ))}
       </div>
