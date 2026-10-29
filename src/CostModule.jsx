@@ -42,9 +42,12 @@ function sampleRows(kind) {
   return out;
 }
 
-function downloadTemplate() {
-  const lines = ['timestamp;kWh'];
-  for (let h = 0; h < 48; h++) lines.push(`2026-01-${String(1 + Math.floor(h / 24)).padStart(2, '0')} ${String(h % 24).padStart(2, '0')}:00;`);
+// Follows Admin → Formula & template: headings on the row above the first data row, columns where the reader expects them.
+function downloadTemplate(tpl) {
+  const ts = (tpl.tsCol || 1) - 1, val = (tpl.valCol || 2) - 1, first = tpl.firstRow || 2;
+  const row = (a, b) => { const r = Array(Math.max(ts, val) + 1).fill(''); r[ts] = a; r[val] = b; return r.join(';'); };
+  const lines = Array.from({ length: first - 1 }, (_, i) => (i === first - 2 ? row('timestamp', tpl.unit || 'kWh') : ''));
+  for (let h = 0; h < 48; h++) lines.push(row(`2026-01-${String(1 + Math.floor(h / 24)).padStart(2, '0')} ${String(h % 24).padStart(2, '0')}:00`, ''));
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/csv' })), download: 'metis-consumption-template.csv' });
   a.click();
   URL.revokeObjectURL(a.href);
@@ -108,7 +111,7 @@ export default function CostModule({ cid, uid, canEdit }) {
           >
             <UploadSimple size={26} className="drop-icon" />
             <span><b>{t('chooseFile')}</b> {t('orDrop')}</span>
-            <span className="fine">{t('dropHint')} <button type="button" className="link" onClick={(e) => { e.preventDefault(); downloadTemplate(); }}>{t('tplLink')}</button></span>
+            <span className="fine">{t('dropHint')} <button type="button" className="link" onClick={(e) => { e.preventDefault(); downloadTemplate(tpl); }}>{t('tplLink')}</button></span>
             <input type="file" className="vh" accept=".csv,.txt,.xlsx" onChange={(e) => onFile(e.target.files[0])} />
           </label>
           {msg && <p className="notice" style={{ marginTop: 12 }}>{msg}</p>}

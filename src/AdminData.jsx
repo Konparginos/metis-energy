@@ -165,11 +165,61 @@ export function DataSources() {
   );
 }
 
+const COLS = 'ABCDEFGHIJ';
+
+// Dropdown over the series the data feeds maintain (EEX, URL feeds, manual uploads).
+function SeriesSelect({ list, value, onChange }) {
+  const t = useT();
+  const known = list.some((s) => s.id === value);
+  return (
+    <select value={value} onChange={onChange}>
+      {!value && <option value="">{t('pickSeries')}</option>}
+      {value && !known && <option value={value}>{value} ({t('seriesMissing')})</option>}
+      {list.map((s) => <option key={s.id} value={s.id}>{s.name ? `${s.name} (${s.id})` : s.id}{s.unit ? ` · ${s.unit}` : ''}</option>)}
+    </select>
+  );
+}
+
+function TemplatePreview({ f }) {
+  const t = useT();
+  const ts = +f.tsCol || 1, val = +f.valCol || 2, first = +f.firstRow || 1;
+  const width = Math.max(ts, val), cols = [...COLS.slice(0, width)];
+  const rows = Array.from({ length: first - 1 + 3 }, (_, i) => i + 1);
+  const cell = (r, c) => {
+    if (r < first) return r === first - 1 ? (c === ts ? t('tplTime') : c === val ? f.unit : '') : '';
+    const h = r - first;
+    if (c === ts) return `01/01/2026 ${String(h).padStart(2, '0')}:00`;
+    if (c === val) return f.unit === 'MWh' ? (0.42 + h * 0.03).toFixed(3) : String(420 + h * 30);
+    return '';
+  };
+  return (
+    <>
+      <h3>{t('tplPreview')}</h3>
+      <p className="fine">{t('tplPreviewSub')} {t('tplSheetName')} {f.sheet || 1} (.xlsx).</p>
+      <div className="scroll">
+        <table>
+          <thead><tr><th />{cols.map((c, i) => <th key={c}>{c}{i + 1 !== ts && i + 1 !== val ? ` (${t('tplNotRead')})` : ''}</th>)}</tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r} className={r < first ? 'fine' : ''}>
+                <th>{r}</th>
+                {cols.map((_, i) => <td key={i} className={i + 1 === val && r >= first ? 'num' : ''}>{cell(r, i + 1)}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
 export function FormulaTemplate() {
   const t = useT();
   const cfg = useDoc('config', 'app');
   const [f, setF] = useState(null);
   const [msg, setMsg] = useState('');
+  const [series, setSeries] = useState([]);
+  useEffect(() => onSnapshot(collection(db, 'series'), (s) => setSeries(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.id.localeCompare(b.id)))), []);
   useEffect(() => {
     if (!f && cfg) setF({ adminFee: cfg.adminFee ?? 0.2, gasSeries: cfg.gasSeries ?? 'ttf', powerSeries: cfg.powerSeries ?? 'power', ...{ sheet: 1, firstRow: 2, tsCol: 1, valCol: 2, unit: 'kWh', ...(cfg.template || {}) } });
   }, [cfg]);
@@ -189,17 +239,18 @@ export function FormulaTemplate() {
       <p className="fine">Electricity €/MWh = hourly DAM + Uplift 1 + Uplift 2 + Uplift 3 + regulator admin fee · Gas €/MWh = monthly average of the gas series</p>
       <div className="grid2">
         <label>{t('adminFee')}<input type="number" step="0.01" min="0" value={f.adminFee} onChange={num('adminFee')} /></label>
-        <label>{t('gasSeries')}<input value={f.gasSeries} onChange={num('gasSeries')} /></label>
-        <label>{t('powerSeries')}<input value={f.powerSeries} onChange={num('powerSeries')} /></label>
+        <label>{t('gasSeries')}<SeriesSelect list={series} value={f.gasSeries} onChange={num('gasSeries')} /></label>
+        <label>{t('powerSeries')}<SeriesSelect list={series} value={f.powerSeries} onChange={num('powerSeries')} /></label>
       </div>
       <h3>{t('template')}</h3>
       <div className="grid2">
         <label>{t('tplSheet')}<input type="number" min="1" value={f.sheet} onChange={num('sheet')} /></label>
         <label>{t('tplFirstRow')}<input type="number" min="1" value={f.firstRow} onChange={num('firstRow')} /></label>
-        <label>{t('tplTs')}<input type="number" min="1" value={f.tsCol} onChange={num('tsCol')} /></label>
-        <label>{t('tplVal')}<input type="number" min="1" value={f.valCol} onChange={num('valCol')} /></label>
+        <label>{t('tplTs')}<select value={f.tsCol} onChange={num('tsCol')}>{[...COLS].map((c, i) => <option key={c} value={i + 1}>{c}</option>)}</select></label>
+        <label>{t('tplVal')}<select value={f.valCol} onChange={num('valCol')}>{[...COLS].map((c, i) => <option key={c} value={i + 1}>{c}</option>)}</select></label>
         <label>{t('tplUnit')}<select value={f.unit} onChange={num('unit')}><option>kWh</option><option>MWh</option></select></label>
       </div>
+      <TemplatePreview f={f} />
       <button>{t('save')}</button> {msg && <span className="fine">{msg}</span>}
     </form>
   );
