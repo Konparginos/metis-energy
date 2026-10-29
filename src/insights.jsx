@@ -13,47 +13,42 @@ const cmp = (p, lang, what) => {
 };
 
 export function Insight({ lines, help }) {
-  const t = useT();
   return (
     <div className="insight">
       <Lightbulb size={20} weight="duotone" className="insight-icon" />
       <div className="grow">
         {lines.filter(Boolean).map((l, i) => <p key={i}>{l}</p>)}
-        {help && (
-          <details className="howto">
-            <summary><Question size={14} />{t('howToRead')}</summary>
-            <p>{help}</p>
-          </details>
-        )}
+        {help && <HowTo help={help} />}
       </div>
     </div>
   );
 }
 
-export function pricesInsight(lang, commodities) {
-  return commodities.map((c) => {
-    const p = c.yoy == null ? null : Math.round(c.yoy);
-    const when = monthName(c.last, lang);
-    if (lang === 'el') return `${c.name}: ${n(c.value)} ${c.unit} (${when})${p == null ? '' : `, ${cmp(p, lang, 'ένα χρόνο πριν')}`}.`;
-    return `${c.name}: ${n(c.value)} ${c.unit} in ${when}${p == null ? '' : `, ${cmp(p, lang, 'a year earlier')}`}.`;
-  });
+export function HowTo({ help }) {
+  const t = useT();
+  return (
+    <details className="howto">
+      <summary><Question size={14} />{t('howToRead')}</summary>
+      <p>{help}</p>
+    </details>
+  );
 }
 
 export const pricesHelp = (lang) => (lang === 'el'
-  ? 'Οι κάρτες δείχνουν τον μηνιαίο μέσο κάθε προϊόντος. Στο διάγραμμα σύγκρισης κάθε σειρά ξεκινά από το 100, ώστε να φαίνεται ποιο προϊόν κινήθηκε περισσότερο, ανεξάρτητα από τη μονάδα του. Η ωριαία τιμή ΑΕΗ δείχνει τον ημερήσιο μέσο και, σκιασμένο, το εύρος από τη φθηνότερη έως την ακριβότερη ώρα.'
+  ? 'Οι κάρτες δείχνουν τον μηνιαίο μέσο κάθε προϊόντος. Στο διάγραμμα σύγκρισης κάθε σειρά ξεκινά από το 100, ώστε να φαίνεται ποιο προϊόν κινήθηκε περισσότερο, ανεξάρτητα από τη μονάδα του. Η ωριαία τιμή Day-ahead δείχνει τον ημερήσιο μέσο και, σκιασμένο, το εύρος από τη φθηνότερη έως την ακριβότερη ώρα.'
   : 'Cards show each commodity\'s monthly average. In the comparison chart every series starts at 100, so you can see which one moved most regardless of its unit. The hourly day-ahead chart shows the daily average and, shaded, the range from the cheapest to the most expensive hour.');
 
 export function imbalanceInsight(lang, s, month) {
   const p = pct(s.month, s.year), when = monthName(month, lang);
   return lang === 'el'
-    ? [`${when}: η τιμή απόκλισης ήταν κατά μέσο όρο ${n(s.month)} €/MWh, ${cmp(p, lang, `τον μέσο 12 μηνών (${n(s.year)} €/MWh)`)}.`,
+    ? [`${when}: η τιμή Imbalance ήταν κατά μέσο όρο ${n(s.month)} €/MWh, ${cmp(p, lang, `τον μέσο 12 μηνών (${n(s.year)} €/MWh)`)}.`,
       `Τους τελευταίους 12 μήνες τα 15λεπτα κυμάνθηκαν από ${n(s.lo)} έως ${n(s.hi)} €/MWh.`]
     : [`In ${when} the imbalance price averaged €${n(s.month)}/MWh, ${cmp(p, lang, `its 12-month average of €${n(s.year)}`)}.`,
       `Over the last 12 months single quarter-hours ranged from €${n(s.lo)} to €${n(s.hi)}/MWh.`];
 }
 
 export const imbalanceHelp = (lang) => (lang === 'el'
-  ? 'Η τιμή απόκλισης είναι αυτό που πληρώνει (ή λαμβάνει) ο προμηθευτής για κάθε MWh που καταναλώνεται πάνω (ή κάτω) από το πρόγραμμα. Όταν είναι υψηλή, η ακριβής πρόβλεψη κατανάλωσης και η ευέλικτη λειτουργία αξίζουν περισσότερο, και τα συμβόλαια με χρέωση αποκλίσεων κοστίζουν ακριβότερα.'
+  ? 'Η τιμή Imbalance είναι αυτό που πληρώνει (ή λαμβάνει) ο προμηθευτής για κάθε MWh που καταναλώνεται πάνω (ή κάτω) από το πρόγραμμα. Όταν είναι υψηλή, η ακριβής πρόβλεψη κατανάλωσης και η ευέλικτη λειτουργία αξίζουν περισσότερο, και τα συμβόλαια με χρέωση Imbalance κοστίζουν ακριβότερα.'
   : 'The imbalance price is what a supplier pays (or receives) for every MWh consumed above (or below) its schedule. When it runs high, accurate consumption forecasts and flexible operation are worth more, and contracts that pass imbalance costs through become more expensive.');
 
 export function upliftInsight(lang, stats, month) {
@@ -62,14 +57,14 @@ export function upliftInsight(lang, stats, month) {
   const share = total ? Math.round(((stats[big].month || 0) / total) * 100) : 0;
   const when = monthName(month, lang), p = pct(total, totalY);
   return lang === 'el'
-    ? [`${when}: οι λογαριασμοί προσαυξήσεων πρόσθεσαν ${n(total)} €/MWh σε κάθε MWh κατανάλωσης, ${cmp(p, lang, 'τον μέσο 12 μηνών')}.`,
-      `Ο μεγαλύτερος είναι ο Λογαριασμός ${big + 1} με ${n(stats[big].month)} €/MWh (${share}% του συνόλου).`]
+    ? [`${when}: οι λογαριασμοί Uplift πρόσθεσαν ${n(total)} €/MWh σε κάθε MWh κατανάλωσης, ${cmp(p, lang, 'τον μέσο 12 μηνών')}.`,
+      `Ο μεγαλύτερος είναι το Uplift ${big + 1} με ${n(stats[big].month)} €/MWh (${share}% του συνόλου).`]
     : [`In ${when} the uplift accounts added €${n(total)}/MWh to every MWh consumed, ${cmp(p, lang, 'the 12-month average')}.`,
       `The largest is Account ${big + 1} at €${n(stats[big].month)}/MWh (${share}% of the total).`];
 }
 
 export const upliftHelp = (lang) => (lang === 'el'
-  ? 'Οι λογαριασμοί προσαυξήσεων ανακτούν από όλους τους καταναλωτές κόστη εξισορρόπησης και λειτουργίας του συστήματος, ανά MWh. Προστίθενται πάνω στην τιμή ενέργειας στον λογαριασμό σας, γι\' αυτό μετρούν στο συνολικό κόστος προμήθειας.'
+  ? 'Οι λογαριασμοί Uplift ανακτούν από όλους τους καταναλωτές κόστη εξισορρόπησης και λειτουργίας του συστήματος, ανά MWh. Προστίθενται πάνω στην τιμή ενέργειας στον λογαριασμό σας, γι\' αυτό μετρούν στο συνολικό κόστος προμήθειας.'
   : 'Uplift accounts recover balancing and system-operation costs from all consumers, per MWh. They come on top of the energy price in your bill, which is why they matter for your total procurement cost.');
 
 export function profileInsight(lang, p, r) {
@@ -80,7 +75,7 @@ export function profileInsight(lang, p, r) {
   const lf = Math.round(p.loadFactor * 100);
   return lang === 'el'
     ? [`Με τον τύπο της Metis το προφίλ κοστίζει ${n(r.perMWh)} €/MWh, συνολικά ${n(r.cost, 0)} € για ${n(r.mwh, 0)} MWh.`,
-      `Η ενέργεια (ΑΕΗ) είναι το ${damShare}% του κόστους· οι προσαυξήσεις προσθέτουν ${n(up)} €/MWh.`,
+      `Η ενέργεια (Day-ahead) είναι το ${damShare}% του κόστους· το Uplift προσθέτει ${n(up)} €/MWh.`,
       `Συντελεστής φορτίου ${lf}%: ${lf >= 60 ? 'σταθερή κατανάλωση, που συνήθως πετυχαίνει χαμηλότερη μέση τιμή' : 'κατανάλωση με αιχμές, οπότε η μετατόπιση φορτίου σε φθηνές ώρες μπορεί να μειώσει το κόστος'}.`]
     : [`With the Metis formula this profile costs €${n(r.perMWh)}/MWh, €${n(r.cost, 0)} in total for ${n(r.mwh, 0)} MWh.`,
       `Energy (day-ahead) is ${damShare}% of the cost; uplift adds €${n(up)}/MWh.`,

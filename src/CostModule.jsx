@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
-import { UploadSimple, DownloadSimple, Flask, Trash } from '@phosphor-icons/react';
+import { UploadSimple, Trash } from '@phosphor-icons/react';
 import { call, db } from './firebase.js';
 import { aggregate, parseNum, splitLine } from '../functions/lib/cost.js';
 import { useT, loc } from './i18n.js';
@@ -99,12 +99,7 @@ export default function CostModule({ cid, uid, canEdit }) {
     <>
       {canEdit ? (
         <section className="panel">
-          <div className="row" style={{ marginBottom: 12 }}>
-            <div className="seg">{['electricity', 'gas'].map((k) => <button type="button" key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{t(k)}</button>)}</div>
-            <span className="grow" />
-            <button className="ghost icon" onClick={downloadTemplate}><DownloadSimple size={16} />{t('downloadTpl')}</button>
-            <button className="ghost icon" onClick={() => load(sampleRows(kind), `${t('sample')} (${t(kind)})`)}><Flask size={16} />{t('trySample')}</button>
-          </div>
+          <div className="seg" style={{ marginBottom: 12 }}>{['electricity', 'gas'].map((k) => <button type="button" key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{t(k)}</button>)}</div>
           <label
             className={`drop${over ? ' over' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setOver(true); }}
@@ -113,7 +108,7 @@ export default function CostModule({ cid, uid, canEdit }) {
           >
             <UploadSimple size={26} className="drop-icon" />
             <span><b>{t('chooseFile')}</b> {t('orDrop')}</span>
-            <span className="fine">{t('dropHint')}</span>
+            <span className="fine">{t('dropHint')} <button type="button" className="link" onClick={(e) => { e.preventDefault(); downloadTemplate(); }}>{t('tplLink')}</button></span>
             <input type="file" className="vh" accept=".csv,.txt,.xlsx" onChange={(e) => onFile(e.target.files[0])} />
           </label>
           {msg && <p className="notice" style={{ marginTop: 12 }}>{msg}</p>}
@@ -242,7 +237,7 @@ function Result({ p, r }) {
           <thead><tr><th>{t('component')}</th><th>{t('priceBasis')}</th><th className="num">{t('perMWh')}</th><th className="num">€</th></tr></thead>
           <tbody>
             {r.perMWhParts ? (
-              [['DAM', 'dam', r.dam, r.damInternal ? <Conf value="internal" /> : official],
+              [['Day-ahead', 'dam', r.dam, r.damInternal ? <Conf value="internal" /> : official],
                 ['Uplift 1', 'u1', r.u[0], official], ['Uplift 2', 'u2', r.u[1], official], ['Uplift 3', 'u3', r.u[2], official],
                 [t('fee'), 'fee', (r.perMWhParts.fee || 0) * r.mwh, <span className="badge neutral">{t('fixed')}</span>]]
                 .map(([label, k, eur, basis]) => <tr key={k}><td>{label}</td><td>{basis}</td><td className="num">{fmt(r.perMWhParts[k], 2)}</td><td className="num">{fmt(eur)}</td></tr>)

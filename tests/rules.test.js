@@ -36,6 +36,17 @@ test('signed-out visitors see only public settings and texts', async () => {
   await assertFails(setDoc(doc(anon(), 'settings/app'), { authRequired: false }));
 });
 
+test('email settings and mail log are admins only', async () => {
+  const admin = as('meg', { admin: true });
+  await assertSucceeds(getDoc(doc(anon(), 'config/app')));
+  await assertFails(getDoc(doc(anon(), 'config/email')));
+  await assertFails(getDoc(doc(alice(), 'config/email')));
+  await assertSucceeds(getDoc(doc(admin, 'config/email')));
+  await assertFails(getDoc(doc(alice(), 'mailLogs/m1')));
+  await assertSucceeds(getDoc(doc(admin, 'mailLogs/m1')));
+  await assertFails(setDoc(doc(admin, 'mailLogs/m1'), { to: 'x' }));
+});
+
 test('companies are isolated from each other', async () => {
   await assertSucceeds(getDoc(doc(alice(), 'companies/A')));
   await assertFails(getDoc(doc(alice(), 'companies/B')));

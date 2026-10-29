@@ -1,15 +1,22 @@
 import { setGlobalOptions } from 'firebase-functions/v2';
-import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated, onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { defineSecret } from 'firebase-functions/params';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { isoDay, runEntsoe, runIpto, runUrlSeries, saveDamHours, saveSeries, track } from './lib/feeds.js';
 import { priceElectricity, priceMonthly } from './lib/cost.js';
+import { adminRecipients, getConfig, provider, sendMail } from './lib/email.js';
+import { ADMIN_ALERTS, SAMPLE, hasTemplate } from './lib/templates.js';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 initializeApp();
 setGlobalOptions({ region: 'europe-west1' });
+
+// SMTP mailbox for every automated email (see lib/email.js). Set with: firebase functions:secrets:set SMTP_URL
+const SMTP_URL = defineSecret('SMTP_URL');
+const mail = { secrets: [SMTP_URL] };
 
 const ROLES = ['owner', 'analyst', 'viewer'];
 
@@ -48,9 +55,8 @@ export const syncMemberClaims = onDocumentWritten('companies/{cid}/members/{uid}
 });
 
 // Metis admins add users to any company; company owners add users to their own.
-// Returns a password-setup link for the inviter to pass on.
-// ponytail: link is shown to the inviter, send it by email once a mail provider is chosen.
-export const createMember = onCall(async (req) => {
+// The password-setup link is emailed to the new user; it is also returned, so the inviter can pass it on if the email fails.
+export const createMember = onCall(mail, async (req) => {
   const t = req.auth?.token;
   const { cid, email, role } = req.data || {};
   if (typeof cid !== 'string' || !cid || !validEmail(email) || !ROLES.includes(role)) {
@@ -59,7 +65,8 @@ export const createMember = onCall(async (req) => {
   if (!((t?.cid === cid && t?.role === 'owner') || await isAdminCaller(req))) throw new HttpsError('permission-denied', 'Not allowed.');
 
   const db = getFirestore();
-  if (!(await db.doc(`companies/${cid}`).get()).exists) throw new HttpsError('not-found', 'Company not found.');
+  const company = (await db.doc(`companies/${cid}`).get()).data();
+  if (!company) throw new HttpsError('not-found', 'Company not found.');
 
   const normalized = email.trim().toLowerCase();
   const user = await getOrCreateUser(normalized);
@@ -70,11 +77,13 @@ export const createMember = onCall(async (req) => {
     { email: normalized, role, addedBy: req.auth?.uid ?? 'open-mode', addedAt: FieldValue.serverTimestamp() },
     { merge: true },
   );
-  return { uid: user.uid, link: await getAuth().generatePasswordResetLink(normalized) };
+  const link = await getAuth().generatePasswordResetLink(normalized);
+  const sent = await sendMail({ to: normalized, templateKey: 'invite', data: { company: company.name, role, link } });
+  return { uid: user.uid, link, mail: sent.status };
 });
 
 // Creates (or promotes) a Metis admin. Needed before login can be switched on.
-export const createAdmin = onCall(async (req) => {
+export const createAdmin = onCall(mail, async (req) => {
   const { email } = req.data || {};
   if (!validEmail(email)) throw new HttpsError('invalid-argument', 'Valid email required.');
   if (!(await isAdminCaller(req))) throw new HttpsError('permission-denied', 'Not allowed.');
@@ -82,7 +91,9 @@ export const createAdmin = onCall(async (req) => {
   const user = await getOrCreateUser(normalized);
   await getAuth().setCustomUserClaims(user.uid, { ...user.customClaims, admin: true });
   await getFirestore().doc(`admins/${user.uid}`).set({ email: normalized, addedAt: FieldValue.serverTimestamp() });
-  return { uid: user.uid, link: await getAuth().generatePasswordResetLink(normalized) };
+  const link = await getAuth().generatePasswordResetLink(normalized);
+  const sent = await sendMail({ to: normalized, templateKey: 'adminInvite', data: { link } });
+  return { uid: user.uid, link, mail: sent.status };
 });
 
 const requireAdmin = async (req) => {
@@ -224,4 +235,58 @@ export const importDam = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async
   if (!['official', 'internal'].includes(licence)) throw new HttpsError('invalid-argument', 'Licence must be official or internal.');
   const clean = Object.fromEntries(Object.entries(hours).filter(([k, v]) => /^\d{6}$/.test(k) && Number.isFinite(v)));
   return saveDamHours(clean, source.trim(), licence, note);
+});
+
+/* ---------------- Automated emails ---------------- */
+
+const companyName = async (cid) => (await getFirestore().doc(`companies/${cid}`).get()).data()?.name || cid;
+const alertAdmins = async (templateKey, data) => {
+  for (const to of adminRecipients(await getConfig())) await sendMail({ to, templateKey, data });
+};
+
+// New advisory request from a client: alert the Metis admins.
+export const onRequestCreated = onDocumentCreated({ document: 'companies/{cid}/requests/{rid}', ...mail }, async (event) => {
+  const r = event.data?.data();
+  const first = r?.thread?.[0];
+  if (!first || first.side !== 'client') return;
+  await alertAdmins('requestAdmin', { company: await companyName(event.params.cid), from: first.name, title: r.title, text: first.text });
+});
+
+// New message in a request: Metis replied → email the client who opened it; client replied → alert the admins.
+export const onRequestUpdated = onDocumentUpdated({ document: 'companies/{cid}/requests/{rid}', ...mail }, async (event) => {
+  const before = event.data.before.data(), after = event.data.after.data();
+  if ((after.thread?.length || 0) <= (before.thread?.length || 0)) return; // status change, not a new message
+  const m = after.thread.at(-1);
+  if (m.side === 'metis') {
+    const user = after.createdBy && after.createdBy !== 'open-mode' ? await getAuth().getUser(after.createdBy).catch(() => null) : null;
+    const to = user?.email || (after.thread[0]?.name?.includes('@') ? after.thread[0].name : null);
+    await sendMail({ to, templateKey: 'requestReply', data: { title: after.title, text: m.text } });
+  } else {
+    await alertAdmins('clientReply', { company: await companyName(event.params.cid), from: m.name, title: after.title, text: m.text });
+  }
+});
+
+// New Buy-or-Wait signal: email every member of a company with an active "signal" module.
+// ponytail: one email per member in a loop; batch or queue it if the client list grows into the hundreds.
+export const onSignalCreated = onDocumentCreated({ document: 'signals/{id}', timeoutSeconds: 300, ...mail }, async (event) => {
+  const s = event.data?.data();
+  if (!s) return;
+  const db = getFirestore();
+  const companies = (await db.collection('companies').where('modules.signal', '==', true).get()).docs
+    .filter((c) => !c.data().home && (!c.data().validUntil || c.data().validUntil.toMillis() > Date.now()));
+  const emails = new Set();
+  for (const c of companies) for (const m of (await c.ref.collection('members').get()).docs) if (m.data().email) emails.add(m.data().email);
+  const data = { commodity: s.commodity, signal: s.signal, horizon: s.horizon, date: s.date, rationale: s.rationaleEl || s.rationaleEn };
+  for (const to of emails) await sendMail({ to, templateKey: 'signal', data });
+});
+
+// Admin → Email: send one template with sample data. Member-facing samples go to the admin asking; alerts to the alert list.
+export const sendTestEmail = onCall(mail, async (req) => {
+  await requireAdmin(req);
+  const templateKey = req.data?.templateKey || 'test';
+  if (!hasTemplate(templateKey)) throw new HttpsError('invalid-argument', 'Unknown template.');
+  const cfg = await getConfig();
+  const to = req.data?.to || (ADMIN_ALERTS.has(templateKey) ? adminRecipients(cfg)[0] : req.auth?.token?.email) || adminRecipients(cfg)[0];
+  const r = await sendMail({ to, templateKey, data: SAMPLE[templateKey], force: true });
+  return { to, status: r.status, error: r.error, provider: provider() };
 });

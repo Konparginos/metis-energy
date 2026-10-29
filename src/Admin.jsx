@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc } from 'firebase/firestore';
-import { ArrowLeft, Buildings, Database, Function as Formula, Signpost, ChatsCircle, Article, GearSix, Eye, Trash } from '@phosphor-icons/react';
+import { ArrowLeft, Buildings, Database, Function as Formula, Signpost, ChatsCircle, Article, EnvelopeSimple, GearSix, Eye, Trash } from '@phosphor-icons/react';
 import { auth, call, db } from './firebase.js';
 import { MODULES, ROLES, useT } from './i18n.js';
 import Shell from './Shell.jsx';
@@ -8,8 +8,11 @@ import Member from './Member.jsx';
 import { ADMIN_PATHS, go, keyOf } from './router.jsx';
 import { DataSources, FormulaTemplate } from './AdminData.jsx';
 import { AdvisoryInbox, Signals, Texts } from './AdminContent.jsx';
+import EmailSettings from './AdminEmail.jsx';
 
-const TABS = [['tabClients', Buildings], ['tabData', Database], ['tabFormula', Formula], ['tabSignals', Signpost], ['tabAdvisory', ChatsCircle], ['tabContent', Article], ['tabSettings', GearSix]];
+const TABS = [['tabClients', Buildings], ['tabData', Database], ['tabFormula', Formula], ['tabSignals', Signpost], ['tabAdvisory', ChatsCircle], ['tabContent', Article], ['tabEmail', EnvelopeSimple], ['tabSettings', GearSix]];
+// The invite email carries the setup link; the link is shown here only when the email did not go out.
+const inviteResult = (t, email, data) => (data.mail === 'sent' ? `${t('mailSentTo')} ${email}.` : `${t('mailNotSent')}. ${t('setupLink')} ${data.link}`);
 const active = (c) => !(c.validUntil && c.validUntil.toDate() < new Date()) && MODULES.some((m) => c.modules?.[m]);
 
 // seg: path segments after "admin", e.g. ['clients', cid] or ['preview', cid, 'prices'].
@@ -46,6 +49,7 @@ export default function Admin({ seg = [] }) {
       {tab === 'tabContent' && <Texts />}
       {tab === 'tabSignals' && <Signals />}
       {tab === 'tabAdvisory' && <AdvisoryInbox companies={companies} />}
+      {tab === 'tabEmail' && <EmailSettings />}
       {tab === 'tabSettings' && <Settings />}
       {tab === 'tabClients' && (
         <>
@@ -99,7 +103,7 @@ function Settings() {
     setResult('…');
     try {
       const { data } = await call('createAdmin')({ email });
-      setResult(`${t('setupLink')} ${data.link}`);
+      setResult(inviteResult(t, email, data));
       setEmail('');
     } catch (err) {
       setResult(err.message);
@@ -142,7 +146,7 @@ function CompanyPanel({ company, onPreview, onDeleted }) {
     setResult('…');
     try {
       const { data } = await call('createMember')({ cid: company.id, email, role });
-      setResult(`${t('setupLink')} ${data.link}`);
+      setResult(inviteResult(t, email, data));
       setEmail('');
     } catch (err) {
       setResult(err.message);

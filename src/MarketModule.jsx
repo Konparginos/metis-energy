@@ -5,7 +5,7 @@ import { useT, loc } from './i18n.js';
 import LineChart from './Chart.jsx';
 import { Num } from './motion.jsx';
 import { RecommendedSources } from './Catalogue.jsx';
-import { Insight, imbalanceHelp, imbalanceInsight, monthName, pricesHelp, pricesInsight, upliftHelp, upliftInsight } from './insights.jsx';
+import { HowTo, Insight, imbalanceHelp, imbalanceInsight, monthName, pricesHelp, upliftHelp, upliftInsight } from './insights.jsx';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 const ym = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
@@ -117,7 +117,19 @@ function useMarket(range) {
 }
 
 const Seg = ({ value, set, opts }) => <div className="seg">{opts.map(([k, l]) => <button key={k} className={value === k ? 'on' : ''} onClick={() => set(k)}>{l}</button>)}</div>;
-const Skeleton = () => <div className="kpis">{[0, 1, 2, 3].map((i) => <div key={i} className="kpi skeleton" />)}</div>;
+// Chart resolution: a select, so only the range stays as visible buttons.
+const Res = ({ value, set, opts }) => { const t = useT(); return <select className="res" aria-label={t('resolution')} value={value} onChange={(e) => set(e.target.value)}>{opts.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>; };
+// Secondary chart, closed by default; drawn only once opened.
+function Fold({ title, sub, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details className="panel fold" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary><h2>{title}</h2><span className="fine">{sub}</span></summary>
+      {open && children}
+    </details>
+  );
+}
+const Skeleton = () => <div className="kpis">{[0, 1, 2].map((i) => <div key={i} className="kpi skeleton" />)}</div>;
 
 // view: prices | imbalance | uplift | sources
 export default function MarketModule({ view }) {
@@ -147,25 +159,23 @@ function Prices({ m, range, setRange }) {
     <>
       <div className="kpis stagger">
         {kpis.map(([k, item], i) => (
-          <div key={k} className={`kpi ring${i === hero ? ' hero' : ''}`}>
+          <div key={k} className={`kpi${i === hero ? ' hero' : ''}`}>
             <div className="k">{t(k)}</div>
             <div className="v">{item ? <Num value={item.v} digits={2} suffix="€/MWh" /> : '-'}</div>
             <div className="d">{item ? item.d : t('noData')}{k === 'latestDam' && m.damInternal && <> · {t('internalUse')}</>}</div>
           </div>
         ))}
-        <div className="kpi"><div className="k">{t('coverage')}</div><div className="v"><Num value={m.imbDays.length} suffix={t('days')} /></div><div className="d">{m.imbDays[0] ?? '-'} → {m.imbDays.at(-1) ?? '-'}</div></div>
       </div>
 
-      <Insight lines={pricesInsight(t.lang, m.commodities)} help={pricesHelp(t.lang)} />
-
-      <div className="row" style={{ margin: '4px 0 12px' }}>
-        <h2 className="grow" style={{ margin: 0 }}>{t('priceCurves')}</h2>
+      <div className="row section-head">
+        <h2 className="grow">{t('priceCurves')}</h2>
         <Seg value={range} set={setRange} opts={[['1Y', '1Y'], ['3Y', '3Y'], ['all', t('since2020')]]} />
       </div>
+      <HowTo help={pricesHelp(t.lang)} />
 
       <div className="commodities stagger">
         {m.commodities.map((c) => (
-          <section key={c.id} className="panel commodity ring">
+          <section key={c.id} className="panel commodity">
             <div className="c-head">
               <h3 className="c-name" title={c.name}><span className="dot" style={{ background: `var(${c.color})` }} />{c.name}</h3>
               <Conf value={c.confidence} />
@@ -180,8 +190,6 @@ function Prices({ m, range, setRange }) {
         ))}
       </div>
 
-      {m.rebased && <LineChart title={t('rebased')} sub={t('rebasedSub')} unit="100 =" {...m.rebased} />}
-
       <section className="panel">
         <div className="row panel-head">
           <div className="grow"><h2>{t('dam')}</h2><div className="fine">{m.damSource}</div></div>
@@ -190,6 +198,8 @@ function Prices({ m, range, setRange }) {
         {m.damInternal && <p className="notice">{t('internalNote')}</p>}
         {damChart ? <LineChart plain unit="€/MWh" {...damChart} /> : <div className="empty">{t('noData')}</div>}
       </section>
+
+      {m.rebased && <Fold title={t('rebased')} sub={t('rebasedSub')}><LineChart plain unit="100 =" {...m.rebased} /></Fold>}
     </>
   );
 }
@@ -221,8 +231,8 @@ function Imbalance({ m, range, setRange }) {
           <div><dt>{t('lowQh')}</dt><dd><Num value={m.imbStats.lo} digits={2} suffix="€/MWh" /></dd></div>
           <div><dt>{t('highQh')}</dt><dd><Num value={m.imbStats.hi} digits={2} suffix="€/MWh" /></dd></div>
         </dl>
-        <div className="row">
-          <Seg value={res} set={setRes} opts={[['d', t('res_d')], ['w', t('res_w')], ['m', t('res_m')], ['r', t('dailyRange')]]} />
+        <div className="row controls">
+          <Res value={res} set={setRes} opts={[['d', t('res_d')], ['w', t('res_w')], ['m', t('res_m')], ['r', t('dailyRange')]]} />
           <span className="grow" />
           <Seg value={range} set={setRange} opts={[['1Y', t('last12')], ['all', t('allPublished')]]} />
         </div>
@@ -257,8 +267,8 @@ function Uplift({ m, range, setRange }) {
         <div className="share" aria-label={t('upShare')}>
           {m.upStats.map((s, i) => <span key={i} style={{ flex: s.month || 0, background: `var(--ua${i + 1})` }} title={`${t('account')} ${i + 1}`} />)}
         </div>
-        <div className="row">
-          <Seg value={res} set={setRes} opts={[['d', t('res_d')], ['w', t('res_w')], ['m', t('res_m')]]} />
+        <div className="row controls">
+          <Res value={res} set={setRes} opts={[['d', t('res_d')], ['w', t('res_w')], ['m', t('res_m')]]} />
           <span className="grow" />
           <Seg value={range} set={setRange} opts={[['1Y', t('last12')], ['all', t('allPublished')]]} />
         </div>

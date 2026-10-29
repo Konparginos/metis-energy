@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 // Paths for every screen, on the History API (Firebase Hosting serves index.html for all paths).
 // ponytail: no router library; add one if routes ever need params beyond these few segments.
 export const CLIENT_PATHS = { prices: 'prices', imbalance: 'imbalance', uplift: 'uplift', profile: 'profile', signal: 'buy-or-wait', advisory: 'advisory', sources: 'data-sources' };
-export const ADMIN_PATHS = { tabClients: 'clients', tabData: 'data-feeds', tabFormula: 'formula', tabSignals: 'signals', tabAdvisory: 'requests', tabContent: 'texts', tabSettings: 'settings' };
+export const ADMIN_PATHS = { tabClients: 'clients', tabData: 'data-feeds', tabFormula: 'formula', tabSignals: 'signals', tabAdvisory: 'requests', tabContent: 'texts', tabEmail: 'email', tabSettings: 'settings' };
 export const keyOf = (paths, slug) => Object.keys(paths).find((k) => paths[k] === slug);
 
 export function usePath() {

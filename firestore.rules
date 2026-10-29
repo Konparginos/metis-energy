@@ -90,10 +90,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Formula parameters, upload template, public texts.
+    // Formula parameters, upload template, public texts. config/email (sender, alert recipients) is admins only.
     match /config/{id} {
-      allow read: if true;
+      allow read: if id != 'email' || isAdmin();
       allow write: if isAdmin();
+    }
+
+    // Email audit log: written by Cloud Functions only.
+    match /mailLogs/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
     match /content/{page} {
       allow read: if true;

@@ -9,7 +9,7 @@ import Member from './Member.jsx';
 import { Bare, ChromeCtx, LEGAL } from './Shell.jsx';
 import { Link, Redirect, usePath } from './router.jsx';
 
-const storedLang = () => { try { return localStorage.getItem('lang') || 'en'; } catch { return 'en'; } };
+const storedLang = () => { try { return localStorage.getItem('lang') || 'el'; } catch { return 'el'; } };
 
 export default function App() {
   const [lang, setLang] = useState(storedLang);
@@ -50,10 +50,10 @@ export default function App() {
   const chrome = {
     banner: open && <p className="notice banner">{t('openMode')}</p>,
     actions: (
-      <div className="row">
+      <div className="row actions">
         <div className="seg lang" role="group" aria-label="Language">
           <Translate size={15} className="lang-icon" />
-          {[['en', 'EN'], ['el', 'ΕΛ']].map(([k, l]) => <button key={k} className={lang === k ? 'on' : ''} aria-pressed={lang === k} onClick={() => switchLang(k)}>{l}</button>)}
+          {[['el', 'ΕΛ'], ['en', 'EN']].map(([k, l]) => <button key={k} className={lang === k ? 'on' : ''} aria-pressed={lang === k} onClick={() => switchLang(k)}>{l}</button>)}
         </div>
         {session && <button className="ghost icon" onClick={() => signOut(auth)}><SignOut size={16} />{t('signOut')}</button>}
         {!session && open && (seg[0] === 'login'

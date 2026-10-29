@@ -17,7 +17,7 @@ METIS/
 │   ├── Admin*.jsx            Admin area: clients, data feeds, formula, signals, requests, legal texts, settings
 │   ├── Catalogue.jsx         Where each data series should come from
 │   ├── insights.jsx          Plain-language reading of the numbers (EN/EL)
-│   ├── i18n.js               All texts, English (default) and Greek
+│   ├── i18n.js               All texts, Greek (default) and English
 │   └── styles.css            Design tokens, layout, motion
 ├── functions/                Cloud Functions (Node 22, europe-west1)
 │   ├── index.js              Users and roles, feeds, pricing, imports
@@ -45,8 +45,13 @@ npm run deploy                                 # build and deploy everything
 - Hourly day-ahead (Jan 2025 to Sep 2026): copied from the prototype, licensed for Metis internal use only. Replaced by ENTSO-E once the API token is saved in Admin → Data feeds.
 - TTF, EUA, Guarantees of Origin, monthly power: prototype series, labelled Indicative / Low confidence.
 
+## Email
+
+Same setup as energymeets: SMTP from the energymeets.com mailbox via nodemailer (`functions/lib/email.js`), Greek templates in `functions/lib/templates.js`, every send logged in `mailLogs`. Sender, admin-alert recipients (konstantinosparginos@gmail.com, ipsarros81@gmail.com), signature and per-email switches: Admin → Email. Sends: invitations with the password link, Advisory request/reply alerts, new Buy or wait signals. The mailbox credentials are the `SMTP_URL` secret (`smtp://user:app-password@smtp.gmail.com:465`); without it emails are logged, not sent.
+
 ## Before real clients
 
-1. Admin → Settings: add admins, then tick "Login required" (test mode gives everyone admin access).
-2. Admin → Data feeds: save the ENTSO-E token, backfill.
-3. Admin → Legal texts: privacy policy, terms, disclaimer.
+1. `firebase functions:secrets:set SMTP_URL` (same mailbox as energymeets), then deploy.
+2. Admin → Settings: add the admins (they get an email with their password link), then tick "Login required" (test mode gives everyone admin access).
+3. Admin → Data feeds: save the ENTSO-E token, backfill.
+4. Admin → Legal texts: privacy policy, terms, disclaimer.

@@ -53,12 +53,14 @@ export function AdvisoryModule({ cid, canEdit }) {
   return (
     <>
       {canEdit && (
-        <form className="panel" onSubmit={create}>
-          <h3>{t('newRequest')}</h3>
+        <details className="panel fold">
+          <summary><h2>{t('newRequest')}</h2></summary>
+          <form onSubmit={create}>
           <label>{t('subject')}<input required value={subject} onChange={(e) => setSubject(e.target.value)} /></label>
           <label>{t('message')}<textarea required value={text} onChange={(e) => setText(e.target.value)} /></label>
           <button>{t('send')}</button>
-        </form>
+          </form>
+        </details>
       )}
       {!requests.length && <div className="empty">{t('noRequests')}</div>}
       {requests.map((r) => <Thread key={r.id} r={r} path={['companies', cid, 'requests', r.id]} side="client" canReply={canEdit && r.status !== 'closed'} />)}
