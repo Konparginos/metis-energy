@@ -19,7 +19,7 @@ h1 { font-size: 1.35rem; }
 h2 { font-size: 1.05rem; margin-bottom: 12px; }
 h3 { font-size: 0.95rem; margin: 18px 0 10px; }
 a { color: var(--accent); }
-.num, td.num, th.num, .kpi .v, .stats dd, .panel.commodity .big { font-family: var(--num); font-variant-numeric: tabular-nums lining-nums; }
+.num:not(th), td.num, .kpi .v, .stats dd, .panel.commodity .big { font-family: var(--num); font-variant-numeric: tabular-nums lining-nums; }
 
 /* App shell: sidebar + content */
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100dvh; }

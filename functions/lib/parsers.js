@@ -74,3 +74,44 @@ export function parseEntsoeA44(xml) {
   }
   return Object.fromEntries([...sums].map(([k, [s, n]]) => [k, round(s / n, 2)]));
 }
+
+// HEnEx Day-ahead "Results" file (YYYYMMDD_EL-DAM_Results_EN_vNN.xlsx), rows with a header row first.
+// MCP is the Greek clearing price per 15-minute period (SORT 1..96, 92 or 100 on clock-change days).
+// DELIVERY_MTU is Central European wall-clock time (the repeated hour on 25 Oct is 02:00), so SORT 1 starts at
+// 00:00 CET/CEST of DDAY, i.e. 01:00 in Athens; prices are averaged to Athens local hours like the ENTSO-E feed.
+const berlin = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const berlinMidnight = (y, m, d) => {
+  const guess = Date.UTC(y, m - 1, d);
+  const p = Object.fromEntries(berlin.formatToParts(new Date(guess)).map((x) => [x.type, x.value]));
+  return guess - (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute) - guess); // CET/CEST offset of that midnight
+};
+export function parseHenexResults(rows) {
+  const head = (rows[0] || []).map((h) => (typeof h === 'string' ? h.trim() : h));
+  const at = (k) => head.indexOf(k);
+  const [iDay, iSort, iMcp] = [at('DDAY'), at('SORT'), at('MCP')];
+  if (iDay < 0 || iSort < 0 || iMcp < 0) throw new Error('HEnEx results: DDAY, SORT or MCP column missing.');
+  const mcp = new Map(); // "day|sort" → price; the same MCP repeats on every asset row
+  for (const r of rows.slice(1)) {
+    const day = String(r[iDay] ?? ''), sort = Number(r[iSort]), p = Number(r[iMcp]);
+    if (/^\d{8}$/.test(day) && sort >= 1 && Number.isFinite(p) && r[iMcp] !== null && r[iMcp] !== '') mcp.set(`${day}|${sort}`, p);
+  }
+  const sums = new Map();
+  for (const [k, p] of mcp) {
+    const [day, sort] = k.split('|');
+    const start = berlinMidnight(+day.slice(0, 4), +day.slice(4, 6), +day.slice(6, 8));
+    const hk = localHourKey(start + (Number(sort) - 1) * 15 * 6e4);
+    const s = sums.get(hk) || [0, 0];
+    sums.set(hk, [s[0] + p, s[1] + 1]);
+  }
+  return Object.fromEntries([...sums].map(([k, [s, n]]) => [k, round(s / n, 2)]));
+}
+
+// Links to the Results files on HEnEx's Day-ahead publications page → [{ day: 'YYYY-MM-DD', version, url }], newest version per day.
+export function henexResultLinks(html) {
+  const best = new Map();
+  for (const m of html.matchAll(/href="(\/c\/document_library\/get_file\?uuid=[^"]+)"[^>]*>[\s\S]{0,120}?(\d{4})(\d{2})(\d{2})_EL-DAM_Results_EN_v(\d+)/g)) {
+    const day = `${m[2]}-${m[3]}-${m[4]}`, version = Number(m[5]);
+    if (!best.has(day) || best.get(day).version < version) best.set(day, { day, version, url: `https://www.enexgroup.gr${m[1].replace(/&amp;/g, '&')}` });
+  }
+  return [...best.values()].sort((a, b) => a.day.localeCompare(b.day));
+}

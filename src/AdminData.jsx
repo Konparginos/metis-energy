@@ -58,7 +58,7 @@ function FeedCard({ feed, title, children, defaultFrom }) {
   );
 }
 
-function SecretInput({ id, flag }) {
+function SecretInput({ id, flag, label }) {
   const t = useT();
   const cfg = useDoc('config', 'app');
   const [v, setV] = useState('');
@@ -70,14 +70,14 @@ function SecretInput({ id, flag }) {
   };
   return (
     <form onSubmit={save} className="row">
-      <label className="grow">{t('token')}<input type="password" autoComplete="off" required value={v} onChange={(e) => setV(e.target.value)} /></label>
+      <label className="grow">{label || t('token')}<input type="password" autoComplete="off" required value={v} onChange={(e) => setV(e.target.value)} /></label>
       <button>{t('save')}</button>
       <span className="fine">{cfg?.secretsSet?.[flag] ? t('tokenSet') : t('tokenMissing')}</span>
     </form>
   );
 }
 
-const EMPTY = { id: '', name: '', unit: '€/MWh', freq: 'monthly', licence: 'derived', source: '', url: '' };
+const EMPTY = { id: '', name: '', unit: '€/MWh', freq: 'monthly', licence: 'display', source: '', url: '' };
 
 function SeriesManager() {
   const t = useT();
@@ -151,8 +151,12 @@ export function DataSources() {
   return (
     <>
       <FeedCard feed="ipto" title={t('feedIpto')} defaultFrom="2025-01-01" />
+      <FeedCard feed="henex" title={t('feedHenex')} defaultFrom={daysAgo(7)} />
       <FeedCard feed="entsoe" title={t('feedEntsoe')} defaultFrom="2025-01-01">
         <SecretInput id="entsoe" flag="entsoe" />
+      </FeedCard>
+      <FeedCard feed="eex" title={t('feedEex')} defaultFrom="2025-01-01">
+        <SecretInput id="eex" flag="eex" label={t('eexToken')} />
       </FeedCard>
       <FeedCard feed="series" title={t('feedSeries')} />
       <SeriesManager />

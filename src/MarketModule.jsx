@@ -15,14 +15,14 @@ const RANGES = { '1Y': () => monthsBack(13), '3Y': () => monthsBack(37), all: ()
 const dayOfHour = (hk) => new Date(hk * 36e5).toISOString().slice(0, 10);
 const mean = (a) => { const v = a.filter((x) => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
 const when = (ts) => (ts?.toDate ? ts.toDate().toLocaleString(loc(), { dateStyle: 'short', timeStyle: 'short' }) : '-');
-const COLORS = { power: '--power', ttf: '--gas', eua: '--ua3', go: '--imb' };
+const COLORS = { power: '--power', ttf: '--gas', eua: '--ua3', go: '--imb', gr_month: '--power', gr_year: '--power' };
 
 // Confidence / licence label, as in the prototype: Official, Indicative, Low confidence, Internal use only.
 export function Conf({ value }) {
   const t = useT();
   if (!value) return null;
   const v = String(value).toLowerCase();
-  const cls = v.startsWith('official') ? 'ok' : v.startsWith('internal') || v.startsWith('low') ? 'bad' : 'warnb';
+  const cls = v.startsWith('official') ? 'ok' : v.startsWith('internal') ? 'neutral' : v.startsWith('low') ? 'bad' : 'warnb';
   const label = v === 'internal' ? t('internalUse') : v === 'indicative' ? t('indicative') : v.startsWith('low') ? t('lowConf') : v.startsWith('official from') ? `${t('officialFrom')} ${value.slice(14)}` : value;
   return <span className={`badge ${cls}`} title={label}>{label}</span>;
 }
@@ -76,7 +76,7 @@ function useMarket(range) {
       return Object.fromEntries(Object.entries(by).map(([k, v]) => [k, mean(v)]));
     };
     const damMonthly = monthlyOf(Object.fromEntries(damDays.map((d) => [d, mean(byDay[d])])));
-    const order = ['power', 'ttf', 'eua', 'go'];
+    const order = ['power', 'gr_month', 'gr_year', 'ttf', 'eua', 'go'];
     const series = [...data.series].sort((a, b) => (order.indexOf(a.id) + 1 || 99) - (order.indexOf(b.id) + 1 || 99));
     if (!series.some((s) => s.id === 'power') && damDays.length) series.unshift({ id: 'power', unit: '€/MWh', points: {} });
     const commodities = series.map((s, i) => {

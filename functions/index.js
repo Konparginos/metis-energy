@@ -3,7 +3,7 @@ import { onDocumentCreated, onDocumentUpdated, onDocumentWritten } from 'firebas
 import { defineSecret } from 'firebase-functions/params';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { isoDay, runEntsoe, runIpto, runUrlSeries, saveDamHours, saveSeries, track } from './lib/feeds.js';
+import { isoDay, runEex, runEntsoe, runHenex, runIpto, runUrlSeries, saveDamHours, saveSeries, track } from './lib/feeds.js';
 import { priceElectricity, priceMonthly } from './lib/cost.js';
 import { adminRecipients, getConfig, provider, sendMail } from './lib/email.js';
 import { ADMIN_ALERTS, SAMPLE, hasTemplate } from './lib/templates.js';
@@ -120,7 +120,9 @@ async function runAll(lookbackDays) {
   const now = Date.now(), out = {};
   const run = async (name, fn) => { try { out[name] = await track(name, fn); } catch (e) { out[name] = `error: ${e.message}`; } };
   await run('ipto', () => runIpto(isoDay(now - lookbackDays * DAY), isoDay(now)));
+  await run('henex', () => runHenex(isoDay(now - 10 * DAY), isoDay(now + 2 * DAY)));
   await run('entsoe', () => runEntsoe(isoDay(now - Math.min(lookbackDays, 10) * DAY), isoDay(now + 2 * DAY)));
+  await run('eex', () => runEex(isoDay(now - Math.min(lookbackDays, 10) * DAY), isoDay(now)));
   await run('series', () => runUrlSeries());
   return out;
 }
@@ -136,6 +138,8 @@ export const runFeed = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (re
   try {
     if (feed === 'ipto') return await track('ipto', () => runIpto(from, to));
     if (feed === 'entsoe') return await track('entsoe', () => runEntsoe(from, isoDay(Date.parse(to) + DAY)));
+    if (feed === 'eex') return await track('eex', () => runEex(from, to));
+    if (feed === 'henex') return await track('henex', () => runHenex(from, isoDay(Date.parse(to) + 2 * DAY)));
     if (feed === 'series') return await track('series', () => runUrlSeries());
   } catch (e) {
     throw new HttpsError('internal', e.message);

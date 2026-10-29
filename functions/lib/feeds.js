@@ -6,8 +6,9 @@
 //   series/{id}                       admin-managed series (TTF, EUA, GoO, forwards …) + versions/
 import ExcelJS from 'exceljs';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { parseImbabe, summarizeDay, fileVersion, parseEntsoeA44 } from './parsers.js';
+import { parseImbabe, summarizeDay, fileVersion, parseEntsoeA44, parseHenexResults, henexResultLinks } from './parsers.js';
 import { parseSeriesCSV } from './cost.js';
+import { EEX_SERIES, mergeDaily, pricesFromTar } from './eex.js';
 
 const db = () => getFirestore();
 const DAY = 864e5;
@@ -79,6 +80,30 @@ export async function runIpto(from, to) {
   return { weeksListed: latest.size, filesRead, daysChanged };
 }
 
+// HEnEx Day-ahead results: the official Greek clearing price, public files, no token needed.
+// The publications page lists the last 7 days; each file is read once per version (market/henex/files/{name}).
+export async function runHenex(from, to) {
+  const page = await (await get('https://www.enexgroup.gr/web/guest/markets-publications-el-day-ahead-market')).text();
+  const links = henexResultLinks(page).filter((l) => l.day >= from && l.day <= to);
+  if (!links.length && !henexResultLinks(page).length) throw new Error('No Results files found on the HEnEx page: its layout may have changed.');
+  const hours = {};
+  let filesRead = 0;
+  for (const l of links) {
+    const name = `${l.day.replace(/-/g, '')}_EL-DAM_Results_EN_v${String(l.version).padStart(2, '0')}`;
+    const seen = db().doc(`market/henex/files/${name}`);
+    if ((await seen.get()).exists) continue;
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(await (await get(l.url)).arrayBuffer()));
+    const rows = [];
+    wb.worksheets[0].eachRow((r) => rows.push(r.values.slice(1)));
+    Object.assign(hours, parseHenexResults(rows));
+    await seen.set({ url: l.url, at: FieldValue.serverTimestamp() });
+    filesRead++;
+  }
+  const saved = Object.keys(hours).length ? await saveDamHours(hours, 'HEnEx Day-ahead results (EL-DAM)', 'official') : { hours: 0, monthsChanged: 0 };
+  return { listed: links.length, filesRead, ...saved };
+}
+
 // ENTSO-E Transparency day-ahead prices for the Greek bidding zone. Needs the API token saved in Admin.
 const ymdhm = (ms) => new Date(ms).toISOString().replace(/[-:T]/g, '').slice(0, 12);
 export async function runEntsoe(from, to) {
@@ -111,6 +136,38 @@ export async function saveDamHours(hours, source, licence, note = null) {
     if (await writeVersioned(ref, { hours: { ...(prev.hours || {}), ...h }, source, licence: lic, note })) monthsChanged++;
   }
   return { hours: Object.keys(hours).length, monthsChanged };
+}
+
+// EEX end-of-day settlements (TTF, EUA, GO, Greek power forwards) from the EEX Group DataSource File Cloud.
+// Needs the File Cloud access token (DataSource Hub → Access Token, valid one year) saved in Admin → Data sources.
+// Internal-usage subscription: Metis staff only, which is what this platform is.
+export async function runEex(from, to) {
+  const token = (await db().doc('secrets/eex').get()).data()?.value;
+  if (!token) throw new Error('EEX File Cloud access token missing: add it in Admin → Data sources.');
+  const found = {};
+  for (let d = new Date(`${from.slice(0, 7)}-01T00:00:00Z`); d.toISOString().slice(0, 10) <= to; d.setUTCMonth(d.getUTCMonth() + 1)) {
+    const ym = d.toISOString().slice(0, 7);
+    const res = await fetch(`https://filecloud.eex-group.com/spr/${ym.slice(0, 4)}/${ym.slice(5)}?download`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(120_000) });
+    if (res.status === 404) continue; // month not published yet
+    if (res.status === 401 || res.status === 403) throw new Error(`EEX File Cloud ${res.status}: token expired or not valid for these products. Create a new one in the DataSource Hub.`);
+    if (!res.ok) throw new Error(`EEX File Cloud ${res.status} for ${ym}: ${(await res.text()).slice(0, 200)}`);
+    for (const [id, days] of Object.entries(pricesFromTar(Buffer.from(await res.arrayBuffer()), from, to))) Object.assign(found[id] ||= {}, days);
+  }
+  const out = {};
+  for (const s of EEX_SERIES) {
+    const daily = found[s.id];
+    if (!daily) { out[s.id] = 'no data (not in the subscription?)'; continue; }
+    const ref = db().doc(`series/${s.id}`);
+    const prev = (await ref.get()).data() || {};
+    const { version, updatedAt, feed, ...base } = prev;
+    const changed = await writeVersioned(ref, {
+      name: s.name, unit: s.unit, freq: 'daily', licence: 'display', ...base,
+      source: `EEX settlement, ${s.code} (${s.pick === 'dec' ? 'nearest December' : 'front contract'})`, confidence: 'official', note: null,
+      points: mergeDaily(prev.points, daily),
+    });
+    out[s.id] = `${Object.keys(daily).length} days${changed ? '' : ', unchanged'}`;
+  }
+  return out;
 }
 
 // Admin-managed series. A series with a URL is fetched daily; the URL must return "date;value" lines.

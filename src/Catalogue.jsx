@@ -1,14 +1,14 @@
 import { useT } from './i18n.js';
 
-// Reference list from the prototype's source review: where each series should come from.
+// Where each series comes from. Metis staff only, so internal-usage licences are enough throughout.
 const REC = [
-  ['Greek DAM price', 'HEnEx DAM results / ENTSO-E', 'Daily files / API', 'free', 'Connected via ENTSO-E once the token is saved.'],
+  ['Greek DAM price', 'HEnEx DAM results / ENTSO-E', 'Daily files / API', 'free', 'Connected: HEnEx results files daily (no token). ENTSO-E adds older history once its token is saved.'],
   ['Imbalance price, Uplift 1-3', 'IPTO IMBABE files', 'Weekly XLSX, 15-minute', 'free', 'Connected and updating daily.'],
-  ['Greek power forwards', 'EEX Greek Power Futures, HEnEx derivatives', 'EEX DataSource API', 'paid', 'Needed for Buy-or-Wait and cost forecasts.'],
-  ['TTF front month and strip', 'ICE Endex settlements', 'ICE data feed', 'paid', 'EEX TTF settlements as alternative. Licence must cover display.'],
-  ['TTF MA ICIS Heren', 'ICIS', 'ICIS subscription', 'paid', 'Showing it to clients is redistribution: use "calculations only" unless the licence covers display.'],
-  ['EUA Dec front and strip', 'ICE Endex EUA futures', 'ICE data feed', 'paid', 'EEX primary auction results are free daily and track futures closely.'],
-  ['Guarantees of Origin', 'EEX GO Futures', 'EEX DataSource API', 'paid', 'EEX French GO auctions are free; HEnEx runs a GO market, DAPEEP is the Greek registry.'],
+  ['Greek power forwards', 'EEX Greek Power Base Month / Year Futures (FFBM, FFBY)', 'EEX File Cloud, end of day', 'paid', 'Connected via EEX File Cloud once the token is saved (series gr_month, gr_year). For Buy or wait and cost forecasts.'],
+  ['TTF front month', 'EEX TTF Natural Gas Month Future (G3BM)', 'EEX File Cloud, end of day', 'paid', 'Connected via EEX File Cloud once the token is saved. ICE Endex is the larger TTF market; EEX settles close to it.'],
+  ['TTF MA ICIS Heren', 'ICIS', 'ICIS subscription', 'paid', 'Optional: only if supply contracts are indexed to the ICIS month-ahead assessment.'],
+  ['EUA Dec benchmark', 'EEX EUA Future (FEUA, nearest December)', 'EEX File Cloud, end of day', 'paid', 'Connected via EEX File Cloud once the token is saved. Free fallback: EEX primary auction results.'],
+  ['Guarantees of Origin', 'EEX European Renewable Power GO Future (EGOE)', 'EEX File Cloud, end of day', 'paid', 'Connected via EEX File Cloud once the token is saved. HEnEx runs a GO market, DAPEEP is the Greek registry.'],
   ['Solar and wind capture prices', 'DAPEEP monthly reports', 'Reports', 'free', 'Can also be computed from ENTSO-E prices and generation.'],
 ];
 

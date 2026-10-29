@@ -42,8 +42,9 @@ npm run deploy                                 # build and deploy everything
 ## Data
 
 - IPTO imbalance and uplift accounts: official, collected daily at 09:00 Athens, history from Oct 2022.
-- Hourly day-ahead (Jan 2025 to Sep 2026): copied from the prototype, licensed for Metis internal use only. Replaced by ENTSO-E once the API token is saved in Admin → Data feeds.
-- TTF, EUA, Guarantees of Origin, monthly power: prototype series, labelled Indicative / Low confidence.
+- Hourly day-ahead (Jan 2025 to Sep 2026): copied from the prototype, licensed for Metis internal use only. From October 2026 the official HEnEx Day-ahead results are collected daily (public files, no token; HEnEx keeps the last 7 days online). ENTSO-E (API token in Admin → Data feeds) can backfill older months.
+- TTF (G3BM front month), EUA (FEUA nearest December), Guarantees of Origin (EGOE) and Greek power forwards (FFBM, FFBY): EEX end-of-day settlements from the EEX Group DataSource File Cloud (`functions/lib/eex.js`), collected daily at 09:00 Athens once the File Cloud access token is saved in Admin → Data feeds. Until then these are the prototype series, labelled Indicative / Low confidence.
+- Internal use only: the platform is for Metis staff, so internal-usage licences (EEX DataSource webshop default) cover everything shown.
 
 ## Email
 
@@ -53,5 +54,5 @@ Same setup as energymeets: SMTP from the energymeets.com mailbox via nodemailer 
 
 1. `firebase functions:secrets:set SMTP_URL` (same mailbox as energymeets), then deploy.
 2. Admin → Settings: add the admins (they get an email with their password link), then tick "Login required" (test mode gives everyone admin access).
-3. Admin → Data feeds: save the ENTSO-E token, backfill.
+3. Admin → Data feeds: save the ENTSO-E token and the EEX File Cloud token (EEX DataSource Hub → Access Token; renew yearly), backfill both.
 4. Admin → Legal texts: privacy policy, terms, disclaimer.
