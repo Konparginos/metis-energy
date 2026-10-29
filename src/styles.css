@@ -7,7 +7,7 @@
   --ok: #17935A; --danger: #C8423A; --warn: #B97714;
   --power: #157A8C; --gas: #D08A1E; --imb: #3E63C9; --ua1: #157A8C; --ua2: #D08A1E; --ua3: #6E8A3A;
   --shadow: 0 1px 2px #0F1A240a, 0 4px 16px #0F1A2408;
-  --sans: 'Geist', system-ui, sans-serif; --mono: 'Geist Mono', ui-monospace, monospace; --display: 'Comfortaa', var(--sans);
+  --sans: 'Geist', system-ui, sans-serif; --mono: 'Geist Mono', ui-monospace, monospace; --num: 'Literata', Georgia, serif; --display: 'Comfortaa', var(--sans);
   --r-panel: 14px; --r-ctl: 10px;
   color-scheme: light;
 }
@@ -19,7 +19,7 @@ h1 { font-size: 1.35rem; }
 h2 { font-size: 1.05rem; margin-bottom: 12px; }
 h3 { font-size: 0.95rem; margin: 18px 0 10px; }
 a { color: var(--accent); }
-.num, td.num, th.num, .kpi .v, .stats dd { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.num, td.num, th.num, .kpi .v, .stats dd, .panel.commodity .big { font-family: var(--num); font-variant-numeric: tabular-nums lining-nums; }
 
 /* App shell: sidebar + content */
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100dvh; }
@@ -231,7 +231,7 @@ details > summary::-webkit-details-marker { display: none; }
 .howto summary { display: inline-flex; gap: 6px; align-items: center; color: var(--accent); font-size: 0.82rem; font-weight: 500; }
 .howto p { color: var(--muted); font-size: 0.86rem; margin-top: 6px; }
 .commodities { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.panel.commodity .big { font-family: var(--mono); font-size: 1.6rem; font-weight: 500; letter-spacing: -0.02em; margin-top: 6px; }
+.panel.commodity .big { font-size: 1.6rem; font-weight: 500; letter-spacing: -0.02em; margin-top: 6px; }
 .panel.commodity .big small { font-size: 0.78rem; color: var(--muted); margin-left: 4px; }
 .chart.small .chart-box { height: 120px; }
 .badge.warnb { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
