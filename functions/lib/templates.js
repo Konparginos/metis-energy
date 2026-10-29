@@ -1,6 +1,8 @@
 // Branded HTML emails, ported from the energymeets engine, in Metis colours.
 // Greek copy (the platform's default language); market jargon (Day-ahead, Imbalance, Uplift, Buy or wait) stays in English.
 // Each builder returns { subject, body, text }; render() wraps the body in the layout.
+// Admins can override subject/body per template (config/email.templates.{key}) with {{token}} placeholders,
+// and set a header banner image (config/email.headerBannerUrl) that replaces the text logo, as in energymeets.
 
 // Same sender and admins as energymeets. Admin → Email (config/email) overrides any of these.
 export const OWNERS = ['konstantinosparginos@gmail.com', 'ipsarros81@gmail.com'];
@@ -21,13 +23,16 @@ const MUTED = '#5B6878';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function layout({ preheader, body, signature }) {
+function layout({ preheader, body, signature, bannerUrl }) {
+  const head = bannerUrl
+    ? `<tr><td style="padding:0"><a href="${SITE}" style="display:block;text-decoration:none"><img src="${esc(bannerUrl)}" width="560" alt="Metis Energy" style="display:block;border:0;width:100%;max-width:560px;height:auto;font-size:20px;font-weight:700;color:#0B3D4C;text-align:center"></a></td></tr><tr><td style="height:3px;background:${ACCENT}"></td></tr>`
+    : `<tr><td style="padding:22px 30px 18px;border-bottom:3px solid ${ACCENT}"><a href="${SITE}" style="text-decoration:none;font-size:24px;font-weight:700;letter-spacing:-0.5px;color:#0B3D4C">metis</a><div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#B97714;text-transform:uppercase">Ride the curve</div></td></tr>`;
   return `<!doctype html><html lang="el"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Metis Energy</title></head>
 <body style="margin:0;padding:0;background:#F4F6F9;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${INK}">
 <span style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6F9;padding:28px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #E6EAF0">
-<tr><td style="padding:22px 30px 18px;border-bottom:3px solid ${ACCENT}"><a href="${SITE}" style="text-decoration:none;font-size:24px;font-weight:700;letter-spacing:-0.5px;color:#0B3D4C">metis</a><div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#B97714;text-transform:uppercase">Ride the curve</div></td></tr>
+${head}
 <tr><td style="padding:30px 30px 22px">${body}</td></tr>
 <tr><td style="padding:0 30px 26px"><p style="margin:0;font-size:12px;line-height:1.6;color:${MUTED}">${esc(signature)}</p></td></tr>
 <tr><td style="background:#F8FAFC;padding:16px 30px;border-top:1px solid #E6EAF0"><p style="margin:0;font-size:11px;color:${MUTED}">Λαμβάνετε αυτό το μήνυμα επειδή έχετε λογαριασμό στη Metis Energy.</p></td></tr>
@@ -85,6 +90,20 @@ const builders = {
 };
 
 export const TEMPLATE_KEYS = Object.keys(builders);
+
+// Tokens each template can use in an admin-edited version (Admin → Email → Templates).
+export const TEMPLATE_VARS = {
+  invite: ['company', 'role', 'link'],
+  adminInvite: ['link'],
+  requestAdmin: ['company', 'from', 'title', 'text'],
+  clientReply: ['company', 'from', 'title', 'text'],
+  requestReply: ['title', 'text'],
+  signal: ['signal', 'commodity', 'horizon', 'date', 'rationale'],
+};
+
+// Codes become the words shown in the email, so {{role}} reads "Αναλυτής", not "analyst".
+const prep = (d = {}) => ({ ...d, role: ROLE[d.role] || d.role, commodity: COMMODITY[d.commodity] || d.commodity, signal: SIGNAL[d.signal] || d.signal });
+const fill = (s, d, html) => String(s).replace(/\{\{(\w+)\}\}/g, (_, k) => (d[k] == null ? '' : html ? esc(d[k]) : String(d[k])));
 export const ADMIN_ALERTS = new Set(['requestAdmin', 'clientReply']);
 
 // Sample data for test sends from Admin → Email.
@@ -100,8 +119,19 @@ export const SAMPLE = {
 
 export const hasTemplate = (key) => Object.hasOwn(builders, key);
 
-/** { subject, html, text } for a template. */
+/** { subject, html, text } for a template, using the admin's edited version when there is one. */
 export function render(key, data, cfg = {}) {
-  const t = builders[key](data);
-  return { subject: t.subject, html: layout({ preheader: t.subject, body: t.body, signature: cfg.signature }), text: t.text };
+  const d = prep(data);
+  const t = builders[key](d);
+  const ov = cfg.templates?.[key] || {};
+  const subject = ov.subject ? fill(ov.subject, d, false) : t.subject;
+  const body = ov.body ? fill(ov.body, d, true) : t.body;
+  const text = ov.body ? body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : t.text;
+  return { subject, html: layout({ preheader: subject, body, signature: cfg.signature, bannerUrl: cfg.headerBannerUrl }), text };
+}
+
+/** Default subject and body of a template with {{token}} placeholders, for the template editor. */
+export function templateDefault(key) {
+  const t = builders[key](Object.fromEntries(TEMPLATE_VARS[key].map((v) => [v, `{{${v}}}`])));
+  return { subject: t.subject, body: t.body };
 }

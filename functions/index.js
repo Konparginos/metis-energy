@@ -10,6 +10,8 @@ import { ADMIN_ALERTS, SAMPLE, hasTemplate } from './lib/templates.js';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
+import { randomUUID } from 'node:crypto';
 
 initializeApp();
 setGlobalOptions({ region: 'europe-west1' });
@@ -289,4 +291,26 @@ export const sendTestEmail = onCall(mail, async (req) => {
   const to = req.data?.to || (ADMIN_ALERTS.has(templateKey) ? adminRecipients(cfg)[0] : req.auth?.token?.email) || adminRecipients(cfg)[0];
   const r = await sendMail({ to, templateKey, data: SAMPLE[templateKey], force: true });
   return { to, status: r.status, error: r.error, provider: provider() };
+});
+
+// Admin → Email: header banner for every automated email. Stored in Firebase Storage with a download token,
+// so the URL works in mail clients without public bucket rules; the browser never writes to Storage directly.
+const BANNER_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
+export const uploadMailBanner = onCall(async (req) => {
+  await requireAdmin(req);
+  const { base64, contentType } = req.data || {};
+  const ext = BANNER_TYPES[contentType];
+  if (!ext || typeof base64 !== 'string') throw new HttpsError('invalid-argument', 'PNG, JPEG, GIF or WebP image required.');
+  const bytes = Buffer.from(base64, 'base64');
+  if (!bytes.length || bytes.length > 2 * 1024 * 1024) throw new HttpsError('invalid-argument', 'Image must be at most 2 MB.');
+  const bucket = getStorage().bucket();
+  const path = `mail/banner-${Date.now()}.${ext}`, token = randomUUID();
+  try {
+    await bucket.file(path).save(bytes, { contentType, metadata: { cacheControl: 'public, max-age=31536000', metadata: { firebaseStorageDownloadTokens: token } } });
+  } catch (e) {
+    throw new HttpsError('failed-precondition', `Storage is not set up (Firebase console → Storage → Get started): ${e.message}`);
+  }
+  const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
+  await getFirestore().doc('config/email').set({ headerBannerUrl: url, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  return { url };
 });

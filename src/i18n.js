@@ -62,6 +62,10 @@ const STR = {
     noProvider: 'SMTP is not connected yet: emails are logged but not sent.',
     mail_invite: 'Invitation with password link (new client user)', mail_adminInvite: 'Invitation for a new admin', mail_requestAdmin: 'New Advisory request, to admins',
     mail_clientReply: 'Client reply on a request, to admins', mail_requestReply: 'Metis reply, to the client', mail_signal: 'New Buy or wait signal, to subscribed clients',
+    mailTemplates: 'Templates', mailTemplatesSub: 'Edit the subject and text of each email.', tplEdited: 'edited', tplTokens: 'Placeholders', tplBody: 'Body (HTML)', mailPreview: 'Preview',
+    resetDefault: 'Reset to default', confirmReset: 'Discard your edited version and go back to the default text?',
+    mailBanner: 'Header banner', bannerHint: 'Replaces the Metis logo at the top of every email. 1120 × 280 px stays sharp; PNG, JPEG, GIF or WebP, up to 2 MB.',
+    noBanner: 'No banner yet: emails show the Metis logo.', uploadBanner: 'Upload banner', removeBanner: 'Remove banner', confirmBanner: 'Remove the banner? Emails go back to the Metis logo.', bannerTooBig: 'The image must be at most 2 MB.',
   },
   el: {
     signIn: 'Σύνδεση', signOut: 'Αποσύνδεση', email: 'Email', password: 'Κωδικός',
@@ -121,6 +125,10 @@ const STR = {
     noProvider: 'Το SMTP δεν έχει συνδεθεί ακόμη: τα email καταγράφονται αλλά δεν αποστέλλονται.',
     mail_invite: 'Πρόσκληση με σύνδεσμο κωδικού (νέος χρήστης πελάτη)', mail_adminInvite: 'Πρόσκληση νέου διαχειριστή', mail_requestAdmin: 'Νέο αίτημα Advisory, προς διαχείριση',
     mail_clientReply: 'Απάντηση πελάτη σε αίτημα, προς διαχείριση', mail_requestReply: 'Απάντηση Metis, προς τον πελάτη', mail_signal: 'Νέο σήμα Buy or wait, προς συνδρομητές',
+    mailTemplates: 'Πρότυπα email', mailTemplatesSub: 'Επεξεργαστείτε το θέμα και το κείμενο κάθε email.', tplEdited: 'επεξεργασμένο', tplTokens: 'Πεδία', tplBody: 'Κείμενο (HTML)', mailPreview: 'Προεπισκόπηση',
+    resetDefault: 'Επαναφορά προεπιλογής', confirmReset: 'Να απορριφθεί η δική σας εκδοχή και να επανέλθει το προεπιλεγμένο κείμενο;',
+    mailBanner: 'Banner κεφαλίδας', bannerHint: 'Αντικαθιστά το λογότυπο Metis στην κορυφή κάθε email. 1120 × 280 px για καθαρή εικόνα· PNG, JPEG, GIF ή WebP, έως 2 MB.',
+    noBanner: 'Δεν υπάρχει banner: τα email δείχνουν το λογότυπο Metis.', uploadBanner: 'Ανέβασμα banner', removeBanner: 'Αφαίρεση banner', confirmBanner: 'Να αφαιρεθεί το banner; Τα email θα δείχνουν ξανά το λογότυπο Metis.', bannerTooBig: 'Η εικόνα πρέπει να είναι έως 2 MB.',
   },
 };
 

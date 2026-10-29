@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { render, SAMPLE, TEMPLATE_KEYS } from './templates.js';
+import { render, SAMPLE, TEMPLATE_KEYS, templateDefault } from './templates.js';
 import { DEFAULTS, adminRecipients, smtpOptions } from './email.js';
 
 test('every template renders, escapes user text and keeps market jargon in English', () => {
@@ -22,4 +22,14 @@ test('SMTP options: port 465 is TLS whatever the scheme, 587 upgrades', () => {
 test('admin alerts go to both owners by default', () => {
   assert.deepEqual(adminRecipients(DEFAULTS), ['konstantinosparginos@gmail.com', 'ipsarros81@gmail.com']);
   assert.deepEqual(adminRecipients({ adminEmail: 'a@x.gr; b@x.gr' }), ['a@x.gr', 'b@x.gr']);
+});
+
+test('admin-edited templates: tokens filled, user text escaped, banner replaces the logo', () => {
+  const cfg = { ...DEFAULTS, headerBannerUrl: 'https://img.example/banner.png', templates: { requestAdmin: { subject: 'Νέο: {{title}} ({{company}})', body: '<p>{{from}}: {{text}}</p>' } } };
+  const r = render('requestAdmin', { ...SAMPLE.requestAdmin, text: '<b>x</b>' }, cfg);
+  assert.equal(r.subject, `Νέο: ${SAMPLE.requestAdmin.title} (Helios Industrial)`);
+  assert.ok(r.html.includes('<p>a.marinou@helios.gr: &lt;b&gt;x&lt;/b&gt;</p>'));
+  assert.ok(r.html.includes('<img src="https://img.example/banner.png"') && !r.html.includes('Ride the curve'));
+  assert.equal(render('invite', SAMPLE.invite, { templates: { invite: { subject: '{{role}}' } } }).subject, 'Αναλυτής');
+  assert.equal(templateDefault('signal').subject, 'Buy or wait: {{signal}}, {{commodity}}');
 });

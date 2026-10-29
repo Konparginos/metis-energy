@@ -303,3 +303,13 @@ select.res { padding: 6px 30px 6px 12px; border-radius: 999px; font-size: 0.86re
   .seg { flex-wrap: wrap; border-radius: 14px; }
   .insight { padding: 12px 14px; }
 }
+
+/* Admin → Email: template editor beside a live preview; banner preview */
+.tpl-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 12px; }
+textarea.code { font: 0.8rem/1.5 var(--mono); }
+.tpl-preview { margin: 0; display: grid; gap: 6px; align-content: start; }
+.tpl-preview iframe { width: 100%; height: 520px; border: 1px solid var(--line); border-radius: var(--r-ctl); background: #F4F6F9; }
+.banner-preview { display: block; width: 100%; max-width: 560px; height: auto; border: 1px solid var(--line); border-radius: var(--r-ctl); margin: 4px 0 12px; }
+label.btn-ghost { display: inline-flex; margin: 0; cursor: pointer; font: 600 0.88rem var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; padding: 9px 18px; }
+label.btn-ghost:hover { border-color: var(--accent); }
+@media (max-width: 860px) { .tpl-edit { grid-template-columns: 1fr; } .tpl-preview iframe { height: 420px; } }

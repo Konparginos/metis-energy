@@ -47,7 +47,7 @@ npm run deploy                                 # build and deploy everything
 
 ## Email
 
-Same setup as energymeets: SMTP from the energymeets.com mailbox via nodemailer (`functions/lib/email.js`), Greek templates in `functions/lib/templates.js`, every send logged in `mailLogs`. Sender, admin-alert recipients (konstantinosparginos@gmail.com, ipsarros81@gmail.com), signature and per-email switches: Admin → Email. Sends: invitations with the password link, Advisory request/reply alerts, new Buy or wait signals. The mailbox credentials are the `SMTP_URL` secret (`smtp://user:app-password@smtp.gmail.com:465`); without it emails are logged, not sent.
+Same setup as energymeets: SMTP from the energymeets.com mailbox via nodemailer (`functions/lib/email.js`), Greek templates in `functions/lib/templates.js`, every send logged in `mailLogs`. Sender, admin-alert recipients (konstantinosparginos@gmail.com, ipsarros81@gmail.com), signature, per-email switches, template texts (subject and HTML body with {{placeholders}}, live preview) and a header banner image: Admin → Email. The banner is stored in Firebase Storage (Firebase console → Storage → Get started, once). Sends: invitations with the password link, Advisory request/reply alerts, new Buy or wait signals. The mailbox credentials are the `SMTP_URL` secret (`smtp://user:app-password@smtp.gmail.com:465`); without it emails are logged, not sent.
 
 ## Before real clients
 
