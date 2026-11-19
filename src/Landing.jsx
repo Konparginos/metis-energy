@@ -156,7 +156,8 @@ export default function Landing({ open }) {
           </nav>
           <span className="grow" />
           {lang}
-          <Link to={open ? '/prices' : '/login'} className="l-signin">{open ? <ShieldCheck size={16} /> : <SignIn size={16} />}{open ? l.openPlatform : t('signIn')}</Link>
+          {/* Signed-out visitors go through sign-in; the platform opens straight only in test mode (login off). */}
+          <Link to={open ? '/prices' : '/login'} className="l-signin">{open ? <ShieldCheck size={16} /> : <SignIn size={16} />}{l.openPlatform}</Link>
           <a href="#trial" className="l-btn sun sm">{phone ? l.navTrialShort : l.navTrial}</a>
         </div>
       </header>
