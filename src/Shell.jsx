@@ -5,7 +5,7 @@ import Logo from './Logo.jsx';
 import { Link } from './router.jsx';
 
 // App-wide top-bar actions (language, sign in/out) and the test-mode banner, provided by App.
-export const ChromeCtx = createContext({ actions: null, banner: null });
+export const ChromeCtx = createContext({ actions: null, banner: null, lang: null });
 export const LEGAL = ['privacy', 'terms', 'disclaimer'];
 
 // nav: [{ key, label, icon, locked } | { group: 'label' } | 'sep']
@@ -20,7 +20,7 @@ export default function Shell({ nav, active, onNav, title, sub, children }) {
     <div className="shell">
       <aside className={`side${open ? ' open' : ''}`}>
         <div className="side-bar">
-          <div className="brand"><Logo /></div>
+          <div className="brand"><Logo variant="notagline" height={36} /></div>
           <span className="m-title">{title}</span>
           <button className="ghost icon menu-btn" aria-expanded={open} aria-controls="side-menu" aria-label={t('menu')} onClick={() => setOpen(!open)}>
             {open ? <X size={18} /> : <List size={18} />}
@@ -65,7 +65,7 @@ export function Bare({ children }) {
     <div className="bare">
       <div>
         {banner}
-        <div className="bare-top"><Link to="/" className="brand" style={{ textDecoration: 'none', padding: 0 }}><Logo /></Link><span className="grow" />{actions}</div>
+        <div className="bare-top"><Link to="/" className="brand" style={{ textDecoration: 'none', padding: 0, height: 44 }}><Logo height={44} /></Link><span className="grow" />{actions}</div>
       </div>
       <main className="bare-main">{children}</main>
       <footer className="bare-foot">

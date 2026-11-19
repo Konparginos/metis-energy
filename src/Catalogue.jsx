@@ -7,8 +7,6 @@ const REC = [
   ['Greek power forwards', 'EEX Greek Power Base Month / Year Futures (FFBM, FFBY)', 'EEX File Cloud, end of day', 'paid', 'Connected via EEX File Cloud once the token is saved (series gr_month, gr_year). For Buy or wait and cost forecasts.'],
   ['TTF front month', 'EEX TTF Natural Gas Month Future (G3BM)', 'EEX File Cloud, end of day', 'paid', 'Connected via EEX File Cloud once the token is saved. ICE Endex is the larger TTF market; EEX settles close to it.'],
   ['TTF MA ICIS Heren', 'ICIS', 'ICIS subscription', 'paid', 'Optional: only if supply contracts are indexed to the ICIS month-ahead assessment.'],
-  ['EUA Dec benchmark', 'EEX EUA Future (FEUA, nearest December)', 'EEX File Cloud, end of day', 'paid', 'Connected via EEX File Cloud once the token is saved. Free fallback: EEX primary auction results.'],
-  ['Guarantees of Origin', 'EEX European Renewable Power GO Future (EGOE)', 'EEX File Cloud, end of day', 'paid', 'Connected via EEX File Cloud once the token is saved. HEnEx runs a GO market, DAPEEP is the Greek registry.'],
   ['Solar and wind capture prices', 'DAPEEP monthly reports', 'Reports', 'free', 'Can also be computed from ENTSO-E prices and generation.'],
 ];
 

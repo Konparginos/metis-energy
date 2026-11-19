@@ -7,6 +7,8 @@ rules_version = '2';
 //   market/{series}/months/{ym}     market data, written only by Cloud Functions
 //   settings/app                    { authRequired }  → while not true, everyone is treated as admin (pre-launch testing)
 //   admins/{uid}                    { email }  list of Metis admins, written by Cloud Functions
+//   companies/{cid}/notes|contracts|invoices   mini CRM, Metis admins only
+//   trialRequests/{id}              public 14-day trial requests from the landing page; admins approve (approveTrial)
 // Metis staff carry the auth claim { admin: true }.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -28,6 +30,7 @@ service cloud.firestore {
     }
     function inCompany(cid) { return signedIn() && request.auth.token.cid == cid; }
     function canEdit() { return request.auth.token.role in ['owner', 'analyst']; }
+    function isOwner(cid) { return inCompany(cid) && request.auth.token.role == 'owner'; }
     function company() { return get(/databases/$(database)/documents/companies/$(request.auth.token.cid)).data; }
     function hasModule(m) {
       return signedIn() && request.auth.token.cid is string
@@ -39,11 +42,21 @@ service cloud.firestore {
       allow read: if isAdmin() || inCompany(cid);
       allow write: if isAdmin();
 
-      // Owners add members through the createMember function, so direct writes stay admin-only.
+      // Owners add members through the createMember function (it enforces the seat limit).
+      // Owners may change a colleague's role (analyst/viewer) or remove them, never another owner or themselves.
       match /members/{uid} {
         allow read: if isAdmin() || inCompany(cid);
-        allow write: if isAdmin();
+        allow create: if isAdmin();
+        allow update: if isAdmin() || (isOwner(cid) && uid != request.auth.uid && resource.data.role != 'owner'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+          && request.resource.data.role in ['analyst', 'viewer']);
+        allow delete: if isAdmin() || (isOwner(cid) && uid != request.auth.uid && resource.data.role != 'owner');
       }
+
+      // Mini CRM: notes, contracts and invoices per client, Metis staff only.
+      match /notes/{id} { allow read, write: if isAdmin(); }
+      match /contracts/{id} { allow read, write: if isAdmin(); }
+      match /invoices/{id} { allow read, write: if isAdmin(); }
 
       match /profiles/{pid} {
         allow read: if isAdmin() || (inCompany(cid) && hasModule('cost'));
@@ -104,6 +117,17 @@ service cloud.firestore {
     match /content/{page} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // 14-day trial requests: anyone may file one (shape checked here), only admins read or decide.
+    // ponytail: no rate limit; add App Check or a callable with reCAPTCHA if the form gets spammed.
+    match /trialRequests/{id} {
+      function str(k, lo, hi) { return request.resource.data.get(k, '') is string && request.resource.data.get(k, '').size() >= lo && request.resource.data.get(k, '').size() <= hi; }
+      allow create: if request.resource.data.keys().hasOnly(['company', 'name', 'email', 'phone', 'message', 'lang', 'status', 'createdAt'])
+        && request.resource.data.status == 'new' && request.resource.data.createdAt == request.time
+        && str('company', 2, 120) && str('name', 1, 120) && str('email', 5, 200) && request.resource.data.email.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$')
+        && str('phone', 0, 40) && str('message', 0, 2000) && request.resource.data.get('lang', 'el') in ['el', 'en'];
+      allow read, update, delete: if isAdmin();
     }
 
     // Buy-or-Wait signals published by Metis.

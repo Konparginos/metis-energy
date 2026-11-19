@@ -29,6 +29,15 @@ METIS/
 └── index.html, vite.config.js, package.json
 ```
 
+## Brand, landing, trials, CRM
+
+- Brand: Metis brand guidelines v1.0. Logos are the package SVGs (`src/brand/`, favicons in `public/brand/`), fonts Manrope and Comfortaa self-hosted in `public/fonts/`, palette tokens at the top of `src/styles.css`.
+- Landing page (`/` for signed-out visitors, `src/Landing.jsx`): hero with the Buyometer, the three modules, a sample dashboard laid out like the Dashboard Design (sample data from `src/demo.js`, labelled as such) and the 14-day trial request form.
+- Trials: requests land in `trialRequests` and alert the admins; Admin → Trial requests → Approve creates the company with every module for 14 days and emails the requester (the owner) a password link.
+- Client owners manage their team under "Your team": up to 3 colleagues, Analyst or Viewer (`SEATS` in `functions/index.js` and `src/Team.jsx`).
+- Admin → Clients → a client: Account, CRM (contact, stage, notes), Contracts and Invoices (amounts, due dates, overdue, document links). Metis staff only.
+- Environmental series (EUA carbon, Guarantees of Origin) were removed in Nov 2026.
+
 ## Commands
 
 ```bash
@@ -43,7 +52,7 @@ npm run deploy                                 # build and deploy everything
 
 - IPTO imbalance and uplift accounts: official, collected daily at 09:00 Athens, history from Oct 2022.
 - Hourly day-ahead (Jan 2025 to Sep 2026): copied from the prototype, licensed for Metis internal use only. From October 2026 the official HEnEx Day-ahead results are collected daily (public files, no token; HEnEx keeps the last 7 days online). ENTSO-E (API token in Admin → Data feeds) can backfill older months.
-- TTF (G3BM front month), EUA (FEUA nearest December), Guarantees of Origin (EGOE) and Greek power forwards (FFBM, FFBY): EEX end-of-day settlements from the EEX Group DataSource File Cloud (`functions/lib/eex.js`), collected daily at 09:00 Athens once the File Cloud access token is saved in Admin → Data feeds. Until then these are the prototype series, labelled Indicative / Low confidence.
+- TTF (G3BM front month) and Greek power forwards (FFBM, FFBY): EEX end-of-day settlements from the EEX Group DataSource File Cloud (`functions/lib/eex.js`), collected daily at 09:00 Athens once the File Cloud access token is saved in Admin → Data feeds. Until then these are the prototype series, labelled Indicative / Low confidence.
 - Internal use only: the platform is for Metis staff, so internal-usage licences (EEX DataSource webshop default) cover everything shown.
 
 ## Email

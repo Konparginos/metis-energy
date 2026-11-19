@@ -3,11 +3,10 @@
 // One request per month (".../spr/YYYY/MM?download" returns a .tar of that month's files): EEX allows 250 downloads per 30 min.
 import { gunzipSync } from 'node:zlib';
 
-// Which contract feeds which Metis series. pick: 'front' = nearest maturity, 'dec' = nearest December (the EUA benchmark).
+// Which contract feeds which Metis series. pick: 'front' = nearest maturity, 'dec' = nearest December.
+// Environmental products (EUA carbon, Guarantees of Origin) were dropped from the platform in Nov 2026.
 export const EEX_SERIES = [
   { id: 'ttf', file: 'SettlementNATGASDerivatives_TTF_Future', code: 'G3BM', pick: 'front', name: 'TTF natural gas (EEX front month)', unit: '€/MWh' },
-  { id: 'eua', file: 'SettlementENVIRONMENTALSDerivatives_EU_Future', code: 'FEUA', pick: 'dec', name: 'EU carbon allowances (EUA, EEX Dec)', unit: '€/tCO₂' },
-  { id: 'go', file: 'SettlementGODerivatives_EU_Future', code: 'EGOE', pick: 'front', name: 'Guarantees of Origin (EEX European Renewable)', unit: '€/MWh' },
   { id: 'gr_month', file: 'SettlementPOWERDerivatives_GR_Future', code: 'FFBM', pick: 'front', name: 'Greek power base, front month (EEX)', unit: '€/MWh' },
   { id: 'gr_year', file: 'SettlementPOWERDerivatives_GR_Future', code: 'FFBY', pick: 'front', name: 'Greek power base, front year (EEX)', unit: '€/MWh' },
 ];

@@ -13,12 +13,10 @@ const call = async (name, data) => {
   return j.result;
 };
 
-// Monthly series from Jan 2020: S = { power: {..., d:[].concat(Y(...),Y(...))}, gas, eua, go }
+// Monthly series from Jan 2020: S = { power: {..., d:[].concat(Y(...),Y(...))}, gas, ... } (environmental eua/go not imported)
 const META = {
   power: { id: 'power', name: 'Greek DAM baseload (monthly)', unit: '€/MWh' },
   gas: { id: 'ttf', name: 'TTF natural gas', unit: '€/MWh' },
-  eua: { id: 'eua', name: 'EU carbon allowances (EUA)', unit: '€/tCO₂' },
-  go: { id: 'go', name: 'Guarantees of Origin', unit: '€/MWh' },
 };
 for (const [key, meta] of Object.entries(META)) {
   const block = html.match(new RegExp(`\\b${key}:\\{name:"[^"]*",unit:"[^"]*",src:"([^"]*)",conf:"([^"]*)"[^]*?d:\\[\\]\\.concat\\(([^]*?)\\)\\}`));

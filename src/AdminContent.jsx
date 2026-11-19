@@ -48,7 +48,7 @@ export function Signals() {
     <>
       <form className="panel" onSubmit={publish}>
         <div className="grid2">
-          <label>{t('commodity')}<select value={f.commodity} onChange={set('commodity')}>{['power', 'gas', 'carbon'].map((c) => <option key={c} value={c}>{t(c)}</option>)}</select></label>
+          <label>{t('commodity')}<select value={f.commodity} onChange={set('commodity')}>{['power', 'gas'].map((c) => <option key={c} value={c}>{t(c)}</option>)}</select></label>
           <label>{t('signal')}<select value={f.signal} onChange={set('signal')}>{['buy', 'wait', 'neutral'].map((c) => <option key={c} value={c}>{t(c)}</option>)}</select></label>
           <label>{t('horizon')}<input required placeholder="Q1 2027" value={f.horizon} onChange={set('horizon')} /></label>
           <label>{t('date')}<input type="date" required value={f.date} onChange={set('date')} /></label>

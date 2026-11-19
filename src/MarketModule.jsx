@@ -15,7 +15,9 @@ const RANGES = { '1Y': () => monthsBack(13), '3Y': () => monthsBack(37), all: ()
 const dayOfHour = (hk) => new Date(hk * 36e5).toISOString().slice(0, 10);
 const mean = (a) => { const v = a.filter((x) => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
 const when = (ts) => (ts?.toDate ? ts.toDate().toLocaleString(loc(), { dateStyle: 'short', timeStyle: 'short' }) : '-');
-const COLORS = { power: '--power', ttf: '--gas', eua: '--ua3', go: '--imb', gr_month: '--power', gr_year: '--power' };
+const COLORS = { power: '--power', ttf: '--gas', gr_month: '--s4', gr_year: '--s5' };
+// Environmental series (carbon, Guarantees of Origin) are no longer shown, even where old data is still stored.
+const DROPPED = new Set(['eua', 'go']);
 
 // Confidence / licence label, as in the prototype: Official, Indicative, Low confidence, Internal use only.
 export function Conf({ value }) {
@@ -50,7 +52,7 @@ function useMarket(range) {
       read('dam'), read('ipto'),
       getDocs(query(collection(db, 'series'), where('licence', '==', 'display'))),
       getDoc(doc(db, 'market', 'ipto')), getDoc(doc(db, 'market', 'entsoe')),
-    ]).then(([dam, ipto, series, si, se]) => live && setData({ months, dam, ipto, series: series.docs.map((d) => ({ id: d.id, ...d.data() })), status: { ipto: si.data(), entsoe: se.data() } }))
+    ]).then(([dam, ipto, series, si, se]) => live && setData({ months, dam, ipto, series: series.docs.map((d) => ({ id: d.id, ...d.data() })).filter((s) => !DROPPED.has(s.id)), status: { ipto: si.data(), entsoe: se.data() } }))
       .catch(() => live && setData({ months, dam: [], ipto: [], series: [], status: {} }));
     return () => { live = false; };
   }, [range]);
@@ -79,7 +81,7 @@ function useMarket(range) {
       return Object.fromEntries(Object.entries(by).map(([k, v]) => [k, mean(v)]));
     };
     const damMonthly = monthlyOf(Object.fromEntries(damDays.map((d) => [d, mean(byDay[d])])));
-    const order = ['power', 'gr_month', 'gr_year', 'ttf', 'eua', 'go'];
+    const order = ['power', 'gr_month', 'gr_year', 'ttf'];
     const series = [...data.series].sort((a, b) => (order.indexOf(a.id) + 1 || 99) - (order.indexOf(b.id) + 1 || 99));
     if (!series.some((s) => s.id === 'power') && damDays.length) series.unshift({ id: 'power', unit: '€/MWh', points: {} });
     const commodities = series.map((s, i) => {

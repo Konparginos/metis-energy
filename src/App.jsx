@@ -6,6 +6,7 @@ import { auth, db } from './firebase.js';
 import { LangCtx, MODULES, makeT, useT } from './i18n.js';
 import Admin from './Admin.jsx';
 import Member from './Member.jsx';
+import Landing from './Landing.jsx';
 import { Bare, ChromeCtx, LEGAL } from './Shell.jsx';
 import { Link, Redirect, usePath } from './router.jsx';
 
@@ -47,14 +48,18 @@ export default function App() {
     try { localStorage.setItem('lang', next); } catch { /* private mode */ }
   };
 
+  const langSwitch = (
+    <div className="seg lang" role="group" aria-label="Language">
+      <Translate size={15} className="lang-icon" />
+      {[['el', 'ΕΛ'], ['en', 'EN']].map(([k, l]) => <button key={k} className={lang === k ? 'on' : ''} aria-pressed={lang === k} onClick={() => switchLang(k)}>{l}</button>)}
+    </div>
+  );
   const chrome = {
+    lang: langSwitch,
     banner: open && <p className="notice banner">{t('openMode')}</p>,
     actions: (
       <div className="row actions">
-        <div className="seg lang" role="group" aria-label="Language">
-          <Translate size={15} className="lang-icon" />
-          {[['el', 'ΕΛ'], ['en', 'EN']].map(([k, l]) => <button key={k} className={lang === k ? 'on' : ''} aria-pressed={lang === k} onClick={() => switchLang(k)}>{l}</button>)}
-        </div>
+        {langSwitch}
         {session && <button className="ghost icon" onClick={() => signOut(auth)}><SignOut size={16} />{t('signOut')}</button>}
         {!session && open && (seg[0] === 'login'
           ? <Link to="/admin" className="btn-ghost"><ShieldCheck size={16} />{t('admin')}</Link>
@@ -66,6 +71,7 @@ export default function App() {
   let view;
   if (LEGAL.includes(seg[0])) view = <Bare><ContentPage page={seg[0]} /></Bare>;
   else if (session === undefined || settings === undefined) view = null;
+  else if (!seg[0] && !session) view = <Landing open={open} />; // public landing page with the trial request
   else if (seg[0] === 'login') view = session ? <Redirect to="/" /> : <Bare><Login /></Bare>;
   else if (!session && !open) view = <Redirect to="/login" />;
   else if (isAdmin && seg[0] === 'admin') view = <Admin seg={seg.slice(1)} />;
@@ -115,6 +121,7 @@ function Login() {
       <button>{t('signIn')}</button>
       <button type="button" className="link" onClick={forgot}>{t('forgot')}</button>
       {msg && <p className="notice" role="status">{msg}</p>}
+      <p className="fine">{t('noAccount')} <a href="/#trial">{t('requestTrial')}</a></p>
     </form>
   );
 }

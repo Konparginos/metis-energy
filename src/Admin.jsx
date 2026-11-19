@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc } from 'firebase/firestore';
-import { ArrowLeft, Buildings, Database, Function as Formula, Signpost, ChatsCircle, Article, EnvelopeSimple, GearSix, Eye, Trash } from '@phosphor-icons/react';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
+import { ArrowLeft, Buildings, Database, Function as Formula, Signpost, ChatsCircle, Article, EnvelopeSimple, GearSix, Eye, Trash, Sparkle } from '@phosphor-icons/react';
 import { auth, call, db } from './firebase.js';
 import { MODULES, ROLES, useT } from './i18n.js';
 import Shell from './Shell.jsx';
@@ -9,8 +9,9 @@ import { ADMIN_PATHS, go, keyOf } from './router.jsx';
 import { DataSources, FormulaTemplate } from './AdminData.jsx';
 import { AdvisoryInbox, Signals, Texts } from './AdminContent.jsx';
 import EmailSettings from './AdminEmail.jsx';
+import { Contracts, Crm, Invoices, Trials, daysLeft } from './AdminCrm.jsx';
 
-const TABS = [['tabClients', Buildings], ['tabData', Database], ['tabFormula', Formula], ['tabSignals', Signpost], ['tabAdvisory', ChatsCircle], ['tabContent', Article], ['tabEmail', EnvelopeSimple], ['tabSettings', GearSix]];
+const TABS = [['tabClients', Buildings], ['tabTrials', Sparkle], ['tabData', Database], ['tabFormula', Formula], ['tabSignals', Signpost], ['tabAdvisory', ChatsCircle], ['tabContent', Article], ['tabEmail', EnvelopeSimple], ['tabSettings', GearSix]];
 // The invite email carries the setup link; the link is shown here only when the email did not go out.
 const inviteResult = (t, email, data) => (data.mail === 'sent' ? `${t('mailSentTo')} ${email}.` : `${t('mailNotSent')}. ${t('setupLink')} ${data.link}`);
 const active = (c) => !(c.validUntil && c.validUntil.toDate() < new Date()) && MODULES.some((m) => c.modules?.[m]);
@@ -23,6 +24,8 @@ export default function Admin({ seg = [] }) {
   const setSelected = (id) => go(id ? `/admin/clients/${id}` : '/admin/clients');
   const [companies, setCompanies] = useState([]);
   const [name, setName] = useState('');
+  const [newTrials, setNewTrials] = useState(0);
+  useEffect(() => onSnapshot(query(collection(db, 'trialRequests'), where('status', '==', 'new')), (s) => setNewTrials(s.size), () => {}), []);
 
   useEffect(() => onSnapshot(query(collection(db, 'companies'), orderBy('name')),
     (s) => setCompanies(s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((c) => !c.home))), []);
@@ -43,7 +46,7 @@ export default function Admin({ seg = [] }) {
   }
 
   return (
-    <Shell nav={[{ key: 'platform', label: t('toPlatform'), icon: ArrowLeft }, 'sep', { group: t('admin') }, ...TABS.map(([key, icon]) => ({ key, label: t(key), icon }))]} active={tab} onNav={(k) => go(k === 'platform' ? '/prices' : `/admin/${ADMIN_PATHS[k]}`)} title={t(tab)} sub={t('admin')}>
+    <Shell nav={[{ key: 'platform', label: t('toPlatform'), icon: ArrowLeft }, 'sep', { group: t('admin') }, ...TABS.map(([key, icon]) => ({ key, label: key === 'tabTrials' && newTrials ? `${t(key)} (${newTrials})` : t(key), icon }))]} active={tab} onNav={(k) => go(k === 'platform' ? '/prices' : `/admin/${ADMIN_PATHS[k]}`)} title={t(tab)} sub={t('admin')}>
       {tab === 'tabData' && <DataSources />}
       {tab === 'tabFormula' && <FormulaTemplate />}
       {tab === 'tabContent' && <Texts />}
@@ -51,12 +54,13 @@ export default function Admin({ seg = [] }) {
       {tab === 'tabAdvisory' && <AdvisoryInbox companies={companies} />}
       {tab === 'tabEmail' && <EmailSettings />}
       {tab === 'tabSettings' && <Settings />}
+      {tab === 'tabTrials' && <Trials onOpen={setSelected} />}
       {tab === 'tabClients' && (
         <>
           <div className="kpis">
             <div className="kpi"><div className="k">{t('companies')}</div><div className="v">{companies.length}</div></div>
             <div className="kpi"><div className="k">{t('activeSubs')}</div><div className="v">{companies.filter(active).length}</div></div>
-            <div className="kpi"><div className="k">{t('bundles')}</div><div className="v">{companies.filter((c) => MODULES.every((m) => c.modules?.[m])).length}</div></div>
+            <div className="kpi"><div className="k">{t('onTrial')}</div><div className="v">{companies.filter((c) => c.trial && daysLeft(c) > 0).length}</div></div>
           </div>
           <div className="split">
             <section className="panel">
@@ -65,7 +69,8 @@ export default function Admin({ seg = [] }) {
                 {companies.map((c) => (
                   <button key={c.id} className={`nav-item${c.id === selected ? ' on' : ''}`} onClick={() => setSelected(c.id)}>
                     <span className="grow">{c.name}</span>
-                    <span className={`badge ${active(c) ? 'ok' : 'muted'}`}>{MODULES.filter((m) => c.modules?.[m]).length}/{MODULES.length}</span>
+                    {c.trial ? <span className={`badge ${daysLeft(c) > 0 ? 'warnb' : 'muted'}`}>{t('trial')} · {Math.max(0, daysLeft(c))}{t('dShort')}</span>
+                      : <span className={`badge ${active(c) ? 'ok' : 'muted'}`}>{MODULES.filter((m) => c.modules?.[m]).length}/{MODULES.length}</span>}
                   </button>
                 ))}
               </nav>
@@ -127,7 +132,29 @@ function Settings() {
   );
 }
 
+const SUBTABS = ['account', 'crm', 'contracts', 'invoices'];
 function CompanyPanel({ company, onPreview, onDeleted }) {
+  const t = useT();
+  const [sub, setSub] = useState('account');
+  return (
+    <section className="panel">
+      <div className="row">
+        <h2 className="grow">{company.name}</h2>
+        {company.trial && <span className="badge warnb">{t('trial')} · {Math.max(0, daysLeft(company))}{t('dShort')}</span>}
+        <button className="ghost icon" onClick={onPreview}><Eye size={16} />{t('preview')}</button>
+      </div>
+      <div className="seg" role="tablist">{SUBTABS.map((k) => <button key={k} role="tab" aria-selected={sub === k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}>{t(`sub_${k}`)}</button>)}</div>
+      <div className="enter" key={sub}>
+        {sub === 'account' && <Account company={company} onDeleted={onDeleted} />}
+        {sub === 'crm' && <Crm company={company} />}
+        {sub === 'contracts' && <Contracts company={company} />}
+        {sub === 'invoices' && <Invoices company={company} />}
+      </div>
+    </section>
+  );
+}
+
+function Account({ company, onDeleted }) {
   const t = useT();
   const ref = doc(db, 'companies', company.id);
   const [members, setMembers] = useState([]);
@@ -154,15 +181,11 @@ function CompanyPanel({ company, onPreview, onDeleted }) {
   };
 
   return (
-    <section className="panel">
-      <div className="row">
-        <h2 className="grow">{company.name}</h2>
-        <button className="ghost icon" onClick={onPreview}><Eye size={16} />{t('preview')}</button>
-        <button className="link danger icon" onClick={async () => {
-          if (!window.confirm(t('confirmDelete'))) return;
-          try { await call('deleteCompany')({ cid: company.id }); onDeleted(); } catch (e) { setResult(e.message); }
-        }}><Trash size={16} />{t('deleteCompany')}</button>
-      </div>
+    <>
+      {company.trial && (
+        <p className="notice row"><span className="grow">{t('trialNote')}</span>
+          <button className="ghost" onClick={() => updateDoc(ref, { trial: false, 'crm.stage': 'client' })}>{t('convertClient')}</button></p>
+      )}
       <fieldset>
         <legend>{t('modules')}</legend>
         {MODULES.map((m) => (
@@ -175,7 +198,7 @@ function CompanyPanel({ company, onPreview, onDeleted }) {
       </fieldset>
       <label>{t('validUntil')}<input type="date" value={until} onChange={(e) => setUntil(e.target.value)} /></label>
 
-      <h3>{t('members')}</h3>
+      <h3>{t('members')} <span className="fine">· {t('seatsUsed').replace('{n}', members.filter((m) => m.role !== 'owner').length).replace('{max}', 3)}</span></h3>
       <ul className="list">
         {members.map((m) => (
           <li key={m.id} className="row">
@@ -195,6 +218,12 @@ function CompanyPanel({ company, onPreview, onDeleted }) {
         <button>{t('addMember')}</button>
       </form>
       {result && <p className="notice break">{result}</p>}
-    </section>
+      <div className="row danger-zone">
+        <button className="link danger icon" onClick={async () => {
+          if (!window.confirm(t('confirmDelete'))) return;
+          try { await call('deleteCompany')({ cid: company.id }); onDeleted(); } catch (e) { setResult(e.message); }
+        }}><Trash size={16} />{t('deleteCompany')}</button>
+      </div>
+    </>
   );
 }

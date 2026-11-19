@@ -9,7 +9,7 @@ import { adminRecipients, getConfig, provider, sendMail } from './lib/email.js';
 import { ADMIN_ALERTS, SAMPLE, hasTemplate } from './lib/templates.js';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { randomUUID } from 'node:crypto';
 
@@ -21,6 +21,9 @@ const SMTP_URL = defineSecret('SMTP_URL');
 const mail = { secrets: [SMTP_URL] };
 
 const ROLES = ['owner', 'analyst', 'viewer'];
+const MODULES = ['market', 'cost', 'signal', 'advisory'];
+export const SEATS = 3; // colleagues a client owner can add besides themself
+const TRIAL_DAYS = 14;
 
 // Mirrors openMode() in firestore.rules: until an admin switches login on, every caller counts as admin.
 const isAdminCaller = async (req) => req.auth?.token?.admin === true
@@ -64,13 +67,21 @@ export const createMember = onCall(mail, async (req) => {
   if (typeof cid !== 'string' || !cid || !validEmail(email) || !ROLES.includes(role)) {
     throw new HttpsError('invalid-argument', 'Company, valid email and role are required.');
   }
-  if (!((t?.cid === cid && t?.role === 'owner') || await isAdminCaller(req))) throw new HttpsError('permission-denied', 'Not allowed.');
+  const admin = await isAdminCaller(req);
+  if (!admin && !(t?.cid === cid && t?.role === 'owner')) throw new HttpsError('permission-denied', 'Not allowed.');
 
   const db = getFirestore();
   const company = (await db.doc(`companies/${cid}`).get()).data();
   if (!company) throw new HttpsError('not-found', 'Company not found.');
 
   const normalized = email.trim().toLowerCase();
+  // Client owners manage up to SEATS colleagues (analyst or viewer); Metis admins are not limited.
+  if (!admin) {
+    if (role === 'owner') throw new HttpsError('permission-denied', 'Only Metis can add another owner.');
+    const members = await db.collection(`companies/${cid}/members`).get();
+    const others = members.docs.filter((d) => d.data().role !== 'owner' && d.data().email !== normalized);
+    if (others.length >= SEATS) throw new HttpsError('resource-exhausted', `Your plan includes ${SEATS} users besides the owner.`);
+  }
   const user = await getOrCreateUser(normalized);
   const other = user.customClaims?.cid;
   if (other && other !== cid) throw new HttpsError('already-exists', 'This user belongs to another company.');
@@ -112,6 +123,41 @@ export const deleteCompany = onCall(async (req) => {
   const members = await ref.collection('members').get();
   await db.recursiveDelete(ref); // member deletes fire syncMemberClaims, which clears their claims
   return { removedMembers: members.size };
+});
+
+// Landing-page trial request: alert the Metis admins.
+export const onTrialRequested = onDocumentCreated({ document: 'trialRequests/{id}', ...mail }, async (event) => {
+  const r = event.data.data();
+  await alertAdmins('trialAdmin', { company: r.company, name: r.name, email: r.email, phone: r.phone || '-', text: r.message || '-' });
+});
+
+// Admin approves a trial request: creates the company with every module for TRIAL_DAYS days, makes the requester
+// its owner (they can add up to SEATS colleagues) and emails the password link.
+export const approveTrial = onCall(mail, async (req) => {
+  await requireAdmin(req);
+  const { id } = req.data || {};
+  if (typeof id !== 'string' || !id) throw new HttpsError('invalid-argument', 'Request id required.');
+  const db = getFirestore();
+  const ref = db.doc(`trialRequests/${id}`);
+  const r = (await ref.get()).data();
+  if (!r) throw new HttpsError('not-found', 'Request not found.');
+  if (r.status === 'approved') throw new HttpsError('failed-precondition', 'Already approved.');
+  const email = r.email.trim().toLowerCase();
+  const user = await getOrCreateUser(email);
+  if (user.customClaims?.cid) throw new HttpsError('already-exists', 'This email already belongs to a client.');
+
+  const until = new Date(Date.now() + TRIAL_DAYS * 864e5);
+  const company = await db.collection('companies').add({
+    name: r.company, modules: Object.fromEntries(MODULES.map((m) => [m, true])), validUntil: Timestamp.fromDate(until), trial: true,
+    crm: { contact: r.name, email, phone: r.phone || '', stage: 'trial' }, createdAt: FieldValue.serverTimestamp(),
+  });
+  await company.collection('members').doc(user.uid).set({ email, role: 'owner', addedBy: req.auth?.uid ?? 'open-mode', addedAt: FieldValue.serverTimestamp() });
+  if (r.message) await company.collection('notes').add({ text: `Trial request: ${r.message}`, by: 'Landing page', at: FieldValue.serverTimestamp() });
+  await ref.update({ status: 'approved', cid: company.id, decidedAt: FieldValue.serverTimestamp(), decidedBy: req.auth?.token?.email ?? 'open-mode' });
+
+  const link = await getAuth().generatePasswordResetLink(email);
+  const sent = await sendMail({ to: email, templateKey: 'trialApproved', data: { company: r.company, days: TRIAL_DAYS, until: until.toISOString().slice(0, 10), seats: SEATS, link } });
+  return { cid: company.id, link, mail: sent.status };
 });
 
 // Daily collection, 09:00 Athens. IPTO publishes weekly files with revisions, so look back three weeks.

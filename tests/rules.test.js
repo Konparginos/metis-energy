@@ -2,7 +2,7 @@
 import { test, before, after } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion, serverTimestamp, Timestamp } from 'firebase/firestore';
 
 let env;
 const as = (uid, claims) => env.authenticatedContext(uid, claims).firestore();
@@ -98,4 +98,36 @@ test('test mode (login off) opens everything, as intended until launch', async (
   await seed((db) => setDoc(doc(db, 'settings/app'), { authRequired: false }));
   await assertSucceeds(getDoc(doc(anon(), 'companies/A')));
   await seed((db) => setDoc(doc(db, 'settings/app'), { authRequired: true }));
+});
+
+test('client owners manage colleagues, not owners or themselves; others cannot', async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'companies/B/members/bob'), { email: 'bob@b.gr', role: 'owner' });
+    await setDoc(doc(db, 'companies/B/members/cat'), { email: 'cat@b.gr', role: 'analyst' });
+    await setDoc(doc(db, 'companies/B/members/dan'), { email: 'dan@b.gr', role: 'viewer' });
+  });
+  await assertSucceeds(updateDoc(doc(bob(), 'companies/B/members/cat'), { role: 'viewer' }));
+  await assertFails(updateDoc(doc(bob(), 'companies/B/members/cat'), { role: 'owner' }));
+  await assertFails(updateDoc(doc(bob(), 'companies/B/members/bob'), { role: 'viewer' }));
+  await assertFails(setDoc(doc(bob(), 'companies/B/members/eve'), { email: 'eve@b.gr', role: 'analyst' }));
+  await assertFails(deleteDoc(doc(alice(), 'companies/A/members/vic')));
+  await assertSucceeds(deleteDoc(doc(bob(), 'companies/B/members/dan')));
+});
+
+test('CRM notes, contracts and invoices are Metis only', async () => {
+  const admin = as('meg', { admin: true });
+  await assertSucceeds(setDoc(doc(admin, 'companies/B/invoices/i1'), { number: '1', amount: 100 }));
+  await assertFails(getDoc(doc(bob(), 'companies/B/invoices/i1')));
+  await assertFails(getDoc(doc(bob(), 'companies/B/notes/n1')));
+  await assertFails(setDoc(doc(bob(), 'companies/B/contracts/c1'), { title: 'x' }));
+});
+
+test('anyone may file a well-formed trial request, only admins read it', async () => {
+  const ok = { company: 'Helios', name: 'Anna', email: 'a@helios.gr', phone: '', message: '', lang: 'el', status: 'new', createdAt: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(anon(), 'trialRequests/t1'), ok));
+  await assertFails(setDoc(doc(anon(), 'trialRequests/t2'), { ...ok, status: 'approved' }));
+  await assertFails(setDoc(doc(anon(), 'trialRequests/t3'), { ...ok, email: 'not-an-email' }));
+  await assertFails(setDoc(doc(anon(), 'trialRequests/t4'), { ...ok, extra: 1 }));
+  await assertFails(getDoc(doc(anon(), 'trialRequests/t1')));
+  await assertSucceeds(getDoc(doc(as('meg', { admin: true }), 'trialRequests/t1')));
 });
