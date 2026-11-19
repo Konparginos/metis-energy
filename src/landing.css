@@ -229,6 +229,31 @@
 }
 @media (max-width: 600px) {
   .l-wrap { padding: 0 16px; }
+  /* Phone nav on one line: no-tagline logo, compact language pill, short CTA */
+  .l-nav .seg.lang { flex-wrap: nowrap; border-radius: 999px; padding: 2px; }
+  .l-nav .seg.lang button { padding: 4px 9px; font-size: .78rem; }
+  .l-nav .l-btn, .l-btn { white-space: nowrap; }
+  .landing h2 { font-size: 1.6rem; }
+  .l-h1 { font-size: 2.1rem; }
+  .l-head { margin-bottom: 24px; }
+  .l-kpis b { font-size: 1.1rem; }
+  .l-kpis > div { padding: 10px 12px; }
+  .l-panel { padding: 14px 12px 8px; }
+  .l-panel .row { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .l-panel .row .grow { width: 100%; }
+  .l-panel .seg { flex-wrap: nowrap; border-radius: 999px; }
+  .l-panel .seg button { padding: 4px 8px; }
+  .l-panel .chart-box { height: 200px; }
+  .l-app-bar { gap: 10px; padding: 10px 12px; }
+  .l-app-tabs button { padding: 6px 12px; font-size: .78rem; }
+  .l-chip { font-size: .72rem; }
+  .l-insight { font-size: .84rem; align-items: flex-start; }
+  .l-disc { text-align: left; }
+  .l-buy { padding: 18px 14px 14px; }
+  .l-ctas { flex-direction: column; align-items: stretch; }
+  .l-ctas .l-btn { justify-content: center; }
+  .l-trust { font-size: .8rem; }
+  .l-ticker { font-size: .78rem; }
   .l-sec { padding: 64px 0; }
   .l-nav-in { gap: 10px; }
   .l-nav .seg.lang .lang-icon, .l-signin { display: none; }

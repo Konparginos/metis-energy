@@ -17,7 +17,7 @@ import './landing.css';
 
 const L = {
   en: {
-    navPlatform: 'Platform', navDemo: 'Sample dashboard', navBuyometer: 'Buyometer', navTrial: 'Free trial', openPlatform: 'Open platform',
+    navPlatform: 'Platform', navDemo: 'Sample dashboard', navBuyometer: 'Buyometer', navTrial: 'Free trial', navTrialShort: 'Try free', openPlatform: 'Open platform',
     eyebrow: 'Energy procurement intelligence · Greece',
     h1: 'Know when to buy, when to hedge and when to wait.',
     lead: 'Metis turns Greek power and gas markets into clear decisions for industrial and commercial energy buyers. Market data, your own consumption and expert counsel, in one calm place.',
@@ -52,7 +52,7 @@ const L = {
     footer: 'Energy procurement intelligence and advisory for industrial and commercial buyers, first in Greece and then across South East Europe.',
   },
   el: {
-    navPlatform: 'Πλατφόρμα', navDemo: 'Δείγμα dashboard', navBuyometer: 'Buyometer', navTrial: 'Δωρεάν δοκιμή', openPlatform: 'Άνοιγμα πλατφόρμας',
+    navPlatform: 'Πλατφόρμα', navDemo: 'Δείγμα dashboard', navBuyometer: 'Buyometer', navTrial: 'Δωρεάν δοκιμή', navTrialShort: 'Δοκιμή', openPlatform: 'Άνοιγμα πλατφόρμας',
     eyebrow: 'Ενεργειακή πληροφόρηση προμηθειών · Ελλάδα',
     h1: 'Ξέρετε πότε να αγοράσετε, πότε να αντισταθμίσετε και πότε να περιμένετε.',
     lead: 'Η Metis μετατρέπει τις αγορές ηλεκτρισμού και φυσικού αερίου σε καθαρές αποφάσεις για βιομηχανικούς και εμπορικούς καταναλωτές. Δεδομένα αγοράς, η δική σας κατανάλωση και έμπειρη συμβουλευτική, σε ένα σημείο.',
@@ -115,6 +115,18 @@ function useSeen() {
   return [ref, seen];
 }
 
+// true while the viewport is phone-sized (follows rotation and resizing).
+const PHONE = '(max-width: 600px)';
+function usePhone() {
+  const [on, setOn] = useState(() => typeof matchMedia === 'function' && matchMedia(PHONE).matches);
+  useEffect(() => {
+    const mq = matchMedia(PHONE), f = () => setOn(mq.matches);
+    mq.addEventListener('change', f);
+    return () => mq.removeEventListener('change', f);
+  }, []);
+  return on;
+}
+
 // Cursor-following glow on cards: sets --mx/--my, CSS paints the light.
 const spot = (e) => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`); e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`); };
 
@@ -124,6 +136,7 @@ export default function Landing({ open }) {
   const { lang } = useContext(ChromeCtx);
   const root = useRef();
   const [scrolled, setScrolled] = useState(false);
+  const phone = usePhone();
   const power = useMemo(() => demoMarket('power'), []);
   const stats = useMemo(() => demoStats(power), [power]);
   useReveal(root);
@@ -137,14 +150,14 @@ export default function Landing({ open }) {
     <div className="landing" ref={root}>
       <header className={`l-nav${scrolled ? ' solid' : ''}`}>
         <div className="l-wrap l-nav-in">
-          <a href="#top" className="l-logo" aria-label="metis"><Logo variant={scrolled ? 'full' : 'reverse'} height={40} /></a>
+          <a href="#top" className="l-logo" aria-label="metis"><Logo variant={phone ? (scrolled ? 'notagline' : 'notaglineReverse') : scrolled ? 'full' : 'reverse'} height={phone ? 28 : 40} /></a>
           <nav className="l-links">
             <a href="#platform">{l.navPlatform}</a><a href="#demo">{l.navDemo}</a><a href="#buyometer">{l.navBuyometer}</a>
           </nav>
           <span className="grow" />
           {lang}
           <Link to={open ? '/prices' : '/login'} className="l-signin">{open ? <ShieldCheck size={16} /> : <SignIn size={16} />}{open ? l.openPlatform : t('signIn')}</Link>
-          <a href="#trial" className="l-btn sun sm">{l.navTrial}</a>
+          <a href="#trial" className="l-btn sun sm">{phone ? l.navTrialShort : l.navTrial}</a>
         </div>
       </header>
 
@@ -168,7 +181,7 @@ export default function Landing({ open }) {
       </section>
 
       <Curve />
-      <Demo l={l} power={power} />
+      <Demo l={l} power={power} phone={phone} />
       <Buyometer l={l} signal={stats.signal} />
       <Curve sun />
       <Trial l={l} />
@@ -273,7 +286,7 @@ const Curve = ({ sun }) => (
 );
 
 const SERIES = ['--power', '--gas', '--imb', '--s4', '--s5'];
-function Demo({ l, power }) {
+function Demo({ l, power, phone }) {
   const t = useT();
   const [product, setProduct] = useState('power');
   const [range, setRange] = useState('1Y');
@@ -287,9 +300,9 @@ function Demo({ l, power }) {
   const from = { '1M': n - 21, '3M': n - 63, '6M': n - 126, YTD: m.days.findIndex((d) => d.getFullYear() === m.ref.getFullYear()), '1Y': 0 }[range];
 
   const fwd = useMemo(() => ({
-    labels: m.contracts.map((c) => [c.id, c.name]),
+    labels: m.contracts.map((c) => (phone ? c.id : [c.id, c.name])),
     datasets: [{ label: pname, data: m.contracts.map((c) => c.ohlc.settle), color: '--power', pointRadius: 3.5, pointHoverRadius: 6, pointBackgroundColor: '#E3A23B', pointBorderColor: '#E3A23B', borderWidth: 2.4, tension: 0.3 }],
-  }), [m, pname]);
+  }), [m, pname, phone]);
   const hist = useMemo(() => ({
     labels: m.days.slice(from).map((d) => d.toLocaleDateString(loc(), { day: 'numeric', month: 'short' })),
     datasets: picked.map((id, i) => ({ label: id, data: m.contracts.find((c) => c.id === id).close.slice(from), color: SERIES[i % 5], borderWidth: 1.8 })),
@@ -323,7 +336,7 @@ function Demo({ l, power }) {
             </div>
             <p className="l-insight"><Gauge size={18} />{l.insight(`${pname} ${s.y1.name}`, s.vsAvg, SIG_WORD[s.signal])}</p>
             <div className="l-grid">
-              <div className="l-panel"><h3>{l.fwd}</h3><p className="fine">{l.fwdSub(pname, refDay)}</p><LineChart plain allTicks labels={fwd.labels} datasets={fwd.datasets} /></div>
+              <div className="l-panel"><h3>{l.fwd}</h3><p className="fine">{l.fwdSub(pname, refDay)}</p><LineChart plain allTicks={!phone} labels={fwd.labels} datasets={fwd.datasets} /></div>
               <div className="l-panel">
                 <div className="row"><div className="grow"><h3>{l.hist}</h3><p className="fine">{l.histSub}</p></div>
                   <div className="seg">{['1M', '3M', '6M', 'YTD', '1Y'].map((k) => <button key={k} className={range === k ? 'on' : ''} onClick={() => setRange(k)}>{k}</button>)}</div></div>
